@@ -1,6 +1,5 @@
 <!doctype html><html lang="en"><head>
-<script src="https://quge5.com/88/tag.min.js" data-zone="307316" async data-cfasync="false"></script>
-<script>(function(s){s.dataset.zone='12215496',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Strip — webtoon sketchpad</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:wght@400;700&display=swap">
+<script>(function(s){s.dataset.zone='12215660',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Strip — webtoon sketchpad</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:wght@400;700&display=swap">
 <style>
 :root{--bg:#e8e8ea;--ui:rgba(255,255,255,.88);--ink:#1c1d22;--mute:#80838d;--line:rgba(0,0,0,.09);--acc:#6a67ff;--sh:0 10px 34px rgba(20,20,40,.16);color-scheme:light dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#141519;--ui:rgba(38,40,47,.88);--ink:#ecedf1;--mute:#8e919b;--line:rgba(255,255,255,.1);--sh:0 10px 34px rgba(0,0,0,.5)}}
@@ -1058,7 +1057,7 @@ function onlineBox(st){const d=E('section','wsec onl','<h3>Online</h3>'),p=E('p'
   btn('Sign out',async()=>{ON.signOut()})}
  return d}
 /* ---------- ads: a pop-up with a clear Ad label (shows an example until your service has real ads) ---------- */
-const ADS={list:null,async get(){if(this.list)return this.list;if(window.STRIP_ADS&&Array.isArray(STRIP_ADS.ads)&&STRIP_ADS.ads.length)return this.list=STRIP_ADS.ads;let l=[];if(onCfg()){try{l=await ON.ads()}catch(e){l=[]}}else l=[];return this.list=Array.isArray(l)?l:[]},
+const ADS={list:null,async get(){return[]},
  async show(force){if(document.querySelector('.adov')||RV.on||!$('#home').classList.contains('on')||$('#dlg').classList.contains('open'))return;if(!force&&Date.now()-lsg('strip-ad-at',0)<12e5)return;
   const l=await this.get();if(!l.length)return;const a=l[Math.floor(Math.random()*l.length)],ov=E('div','onov adov'),cd=E('div','oncd adcd'),x=E('button','adx','✕');x.title=x.ariaLabel='Close ad';
   cd.setAttribute('role','dialog');cd.setAttribute('aria-label','Advertisement');cd.append(x,E('span','adtag','Ad'));
@@ -1519,23 +1518,6 @@ document.querySelectorAll('button[title]:not([aria-label])').forEach(b=>b.setAtt
 (()=>{const c1=cwSync;cwSync=function(){c1.apply(this,arguments);const gm=tgt>=2;$('#cwp').style.background=gm?GA:color;$('#cws').style.background=gm?GB:SC;$('#cwp').classList.toggle('t',tgt===0||tgt===2);$('#cws').classList.toggle('t',tgt===1||tgt===3)};
  $('#cwp').onclick=()=>{tgt=tgt>=2?2:0;cwSync()};$('#cws').onclick=()=>{tgt=tgt>=2?3:1;cwSync()};cwSync()})();
 </script><script>
-/* ---- ads (Monetag) ---- */
-(()=>{/* ===== AD SETTINGS: edit this block =====
-   every   : show an ad after this many books / episodes
-   ads     : YOUR OWN ads, e.g. [{title:'Cool App',body:'Try it free',img:'https://site.com/pic.png',url:'https://site.com',cta:'Open'}]
-   slotSrc : script URL of a Monetag BANNER zone (shows inline for readers)
-   link    : or a Monetag direct link (shows as a Sponsored button)
-   tag, sw : Monetag push/pop-up tag. Leave empty: it can appear over the drawing screen.
-   Ads only ever appear on the home screens (Discover, Library, story pages), never on the drawing canvas. */
-const CFG=window.STRIP_ADS={every:10,ads:[],slotSrc:'',link:'',linkText:'Sponsored',tag:'',sw:'/sw.js'},TAG=CFG.tag,SW=CFG.sw;
- const load=()=>{if(!(TAG||SW)||window.__adsOn)return;window.__adsOn=1;if(TAG){const t=document.createElement('script');t.src=TAG;t.async=true;t.setAttribute('data-cfasync','false');document.head.appendChild(t)}if(SW&&'serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register(SW).catch(()=>{})};
- const own=(d,b)=>{if(typeof ADS==='undefined'){d.remove();return}ADS.get().then(l=>{if(!l||!l.length){d.remove();return}const a=l[Math.floor(Math.random()*l.length)],ok=a.url&&/^https:\/\//i.test(a.url),c=document.createElement(ok?'a':'div');c.className='adc';if(ok){c.href=a.url;c.target='_blank';c.rel='noopener noreferrer sponsored'}
-   if(a.img&&/^(https:|data:image\/)/i.test(a.img)){const im=document.createElement('img');im.src=a.img;im.alt='';c.append(im)}
-   const t=document.createElement('div'),h=document.createElement('b'),p=document.createElement('span'),g=document.createElement('em');h.textContent=String(a.title||'');p.textContent=String(a.body||'');g.textContent=String(a.cta||'Learn more');t.append(h,p);c.append(t,g);b.append(c)}).catch(()=>d.remove())};
- window.stripAd=(i,total,force)=>{if(!force&&(((i+1)%(CFG.every||10))||i+1>=total))return null;const d=document.createElement('div'),b=document.createElement('div'),sm=document.createElement('small');d.className='adrow';b.className='adbox';sm.textContent='Advertisement';d.append(sm,b);
-  if(CFG.slotSrc){const t=document.createElement('script');t.async=true;t.src=CFG.slotSrc;t.setAttribute('data-cfasync','false');b.append(t);setTimeout(()=>{if(!b.querySelector('iframe,img,ins,a,div,video'))d.remove()},6000)}
-  else if(CFG.link){const a=document.createElement('a');a.href=CFG.link;a.target='_blank';a.rel='noopener sponsored';a.textContent=CFG.linkText||'Sponsored';b.append(a)}
-  else own(d,b);return d};
- addEventListener('load',()=>setTimeout(load,1500))})();
+
 </script>
 </body></html>
