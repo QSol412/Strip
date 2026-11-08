@@ -40,7 +40,7 @@ async function verifyGoogle(tok, env) {
   const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
   const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, unb64u(sig), TE.encode(h + '.' + p));
   if (!ok || pl.aud !== env.GOOGLE_CLIENT_ID || !/^(https:\/\/)?accounts\.google\.com$/.test(pl.iss) || pl.exp * 1000 < Date.now()) throw 0;
-  return pl.sub;
+  return { sub: pl.sub, email: (pl.email_verified === true || pl.email_verified === 'true') ? String(pl.email || '').toLowerCase() : '' };
 }
 
 const CID = /^[\w-]{1,24}$/;
@@ -77,10 +77,33 @@ async function reports(R, story) {
 }
 const HIDE_AT = 3;   // reports before a comment is hidden from everyone but its author and the admin
 
-async function social({ request, env, m, path, me, R }) {
+async function social({ request, env, m, path, me, meEmail, R }) {
   const needMe = () => J({ error: 'Please sign in again.' }, 401);
   const none = { up: 0, dn: 0, mine: 0 };
-  const isAdmin = !!me && String(env.ADMIN_UID || '').split(',').map(x => x.trim()).filter(Boolean).includes(me);
+  // Roles: ADMIN_UID (env) = owners, always admin. Admins can hand out 'admin' or 'mod' (saved in R2).
+  // mod = can delete comments and see report counts. admin = same, plus manages roles.
+  const owners = String(env.ADMIN_UID || '').split(',').map(x => x.trim()).filter(Boolean), RK = 'online/roles.json';
+  let roles = {}; try { const o = await R.get(RK); roles = o ? await o.json() : {}; } catch (e) { roles = {}; }
+  // Owner emails: the first time one of these Google accounts signs in, it is saved as a permanent owner/admin.
+  const ownerEmails = ['stripcomics412@gmail.com', ...String(env.ADMIN_EMAIL || '').split(',')].map(x => x.trim().toLowerCase()).filter(Boolean);
+  if (me && meEmail && ownerEmails.includes(meEmail) && roles[me] !== 'owner') {
+    roles[me] = 'owner';
+    await R.put(RK, JSON.stringify(roles), { httpMetadata: { contentType: 'application/json' } });
+  }
+  const roleOf = u => !u ? '' : (owners.includes(u) || roles[u] === 'owner') ? 'admin' : (roles[u] || '');
+  const role = roleOf(me), isAdmin = role === 'admin', isStaff = !!role;
+
+  if (m === 'PUT' && path[0] === 'roles') {
+    if (!me) return needMe();
+    if (!isAdmin) return J({ error: 'Only admins can change roles.' }, 403);
+    let b; try { b = await request.json(); } catch (e) { return J({ error: 'Bad request.' }, 400); }
+    const uid = String(b.uid || ''), r = String(b.role || '');
+    if (!ID.test(uid) || !['admin', 'mod', ''].includes(r)) return J({ error: 'Bad request.' }, 400);
+    if (owners.includes(uid) || roles[uid] === 'owner') return J({ error: 'The owner always stays an admin.' }, 400);
+    if (r) roles[uid] = r; else delete roles[uid];
+    await R.put(RK, JSON.stringify(roles), { httpMetadata: { contentType: 'application/json' } });
+    return J({ ok: 1 });
+  }
 
   if (m === 'GET' && path[0] === 'tally') return J(await scan(R, 'social/v/', me));
 
@@ -102,9 +125,9 @@ async function social({ request, env, m, path, me, R }) {
     const load = async () => { const o = await R.get(ck); try { return o ? await o.json() : []; } catch (e) { return []; } };
     if (m === 'GET' && path.length === 2) {
       const all = await load(), votes = await scan(R, 'social/cv/' + story + '/', me), rc = await reports(R, story);
-      return J({ admin: isAdmin ? 1 : 0, comments: all.slice(-200).reverse().map(c => {
-        const n = rc[c.id] || 0, hide = !isAdmin && c.uid !== me && n >= HIDE_AT;
-        return { ...c, ...(votes[c.id] || none), ...(isAdmin ? { rc: n } : {}), ...(hide ? { text: '', hidden: 1 } : {}) };
+      return J({ role, comments: all.slice(-200).reverse().map(c => {
+        const n = rc[c.id] || 0, hide = !isStaff && c.uid !== me && n >= HIDE_AT;
+        return { ...c, ...(votes[c.id] || none), ...(isStaff ? { rc: n } : {}), ...(roleOf(c.uid) ? { staff: roleOf(c.uid) } : {}), ...(hide ? { text: '', hidden: 1 } : {}) };
       }) });
     }
     if (m === 'POST' && path.length === 4 && CID.test(path[2]) && path[3] === 'report') {
@@ -138,7 +161,7 @@ async function social({ request, env, m, path, me, R }) {
     if (m === 'DELETE' && path.length === 3 && CID.test(path[2])) {
       if (!me) return needMe();
       const all = await load();
-      if (!all.some(c => c.id === path[2] && (c.uid === me || isAdmin))) return J({ error: 'You can only delete your own comments.' }, 403);
+      if (!all.some(c => c.id === path[2] && (c.uid === me || isStaff))) return J({ error: 'You can only delete your own comments.' }, 403);
       const gone = new Set([path[2], ...all.filter(c => c.parent === path[2]).map(c => c.id)]);   // its replies go with it
       await R.put(ck, JSON.stringify(all.filter(c => !gone.has(c.id))), { httpMetadata: { contentType: 'application/json' } });
       for (const id of gone) {
@@ -168,10 +191,10 @@ export async function onRequest({ request, env }) {
   const readIx = async () => { const o = await R.get(IX); try { return o ? await o.json() : {}; } catch (e) { return {}; } };
   const writeIx = ix => R.put(IX, JSON.stringify(ix), { httpMetadata: { contentType: 'application/json' } });
   const bearer = (request.headers.get('Authorization') || '').replace(/^Bearer /, '');
-  let me = null;
-  if (bearer) { try { me = await verifyGoogle(bearer, env); } catch (e) { me = null; } }
+  let me = null, meEmail = '';
+  if (bearer) { try { const v = await verifyGoogle(bearer, env); me = v.sub; meEmail = v.email; } catch (e) { me = null; } }
   const needMe = () => J({ error: 'Please sign in again.' }, 401);
-  if (path[0] === 'social') return social({ request, env, m, path: path.slice(1), me, R });
+  if (path[0] === 'social') return social({ request, env, m, path: path.slice(1), me, meEmail, R });
   const body = async () => { try { return await request.json(); } catch (e) { return null; } };
   const wipe = async id => {
     let cur;
