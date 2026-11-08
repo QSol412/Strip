@@ -75,7 +75,37 @@ async function reports(R, story) {
   } while (cur && ++n < 20);
   return out;
 }
-const HIDE_AT = 3;   // reports before a comment is hidden from everyone but its author and the admin
+const HIDE_AT = 3;
+
+// ---- small JSON helpers + notifications (inbox = social/n/<uid>.json)
+const getJ = async (R, k, d) => { try { const o = await R.get(k); return o ? await o.json() : d; } catch (e) { return d; } };
+const putJ = (R, k, v) => R.put(k, JSON.stringify(v), { httpMetadata: { contentType: 'application/json' } });
+async function pushNotif(R, uid, item) {
+  const k = 'social/n/' + uid + '.json', d = await getJ(R, k, { items: [], seen: 0 });
+  d.items = [item, ...(d.items || [])].slice(0, 50);
+  await putJ(R, k, d);
+}
+// Staff = owners (ADMIN_UID / owner emails), admins and moderators.
+async function isStaff(R, env, me, meEmail) {
+  if (!me) return false;
+  const ids = String(env.ADMIN_UID || '').split(',').map(x => x.trim()).filter(Boolean);
+  const mails = ['stripcomics412@gmail.com', ...String(env.ADMIN_EMAIL || '').split(',')].map(x => x.trim().toLowerCase()).filter(Boolean);
+  if (ids.includes(me) || (meEmail && mails.includes(meEmail))) return true;
+  return !!(await getJ(R, 'online/roles.json', {}))[me];
+}
+async function followInfo(R, story, me) {
+  const pre = 'social/f/' + story + '/'; let n = 0, mine = 0, cur, k = 0;
+  do {
+    const l = await R.list({ prefix: pre, cursor: cur });
+    n += l.objects.length; if (me && l.objects.some(o => o.key === pre + me)) mine = 1;
+    cur = l.truncated ? l.cursor : null;
+  } while (cur && ++k < 20);
+  return { n, mine };
+}
+async function notifyFollowers(R, story, item) {
+  const pre = 'social/f/' + story + '/', l = await R.list({ prefix: pre });
+  for (const o of l.objects.slice(0, 300)) await pushNotif(R, o.key.slice(pre.length), item);
+}   // reports before a comment is hidden from everyone but its author and the admin
 
 async function social({ request, env, m, path, me, meEmail, R }) {
   const needMe = () => J({ error: 'Please sign in again.' }, 401);
@@ -102,6 +132,38 @@ async function social({ request, env, m, path, me, meEmail, R }) {
     if (owners.includes(uid) || roles[uid] === 'owner') return J({ error: 'The owner always stays an admin.' }, 400);
     if (r) roles[uid] = r; else delete roles[uid];
     await R.put(RK, JSON.stringify(roles), { httpMetadata: { contentType: 'application/json' } });
+    return J({ ok: 1 });
+  }
+
+  // ---- notifications inbox
+  if (path[0] === 'inbox') {
+    if (!me) return needMe();
+    const k = 'social/n/' + me + '.json', d = await getJ(R, k, { items: [], seen: 0 });
+    if (m === 'GET' && path.length === 1) return J({ items: d.items || [], seen: d.seen || 0, unseen: (d.items || []).filter(i => i.t > (d.seen || 0)).length });
+    if (m === 'POST' && path[1] === 'seen') { d.seen = Date.now(); await putJ(R, k, d); return J({ ok: 1 }); }
+  }
+
+  // ---- follow a story
+  if (path[0] === 'follow' && path.length <= 2) {
+    if (m === 'GET' && ID.test(path[1] || '')) return J(await followInfo(R, path[1], me));
+    if (m === 'PUT') {
+      if (!me) return needMe();
+      let b; try { b = await request.json(); } catch (e) { return J({ error: 'Bad request.' }, 400); }
+      if (!ID.test(String(b.story || ''))) return J({ error: 'Bad request.' }, 400);
+      const key = 'social/f/' + b.story + '/' + me;
+      if (b.on) await R.put(key, ''); else await R.delete(key);
+      return J(await followInfo(R, b.story, me));
+    }
+  }
+
+  // ---- view counts: one small file {storyId: count}
+  if (path[0] === 'views' && m === 'GET') return J(await getJ(R, 'social/views.json', {}));
+  if (path[0] === 'view' && m === 'POST') {
+    let b; try { b = await request.json(); } catch (e) { return J({ error: 'Bad request.' }, 400); }
+    const sid = String(b.story || '');
+    if (!ID.test(sid) || !(await getJ(R, 'online/index.json', {}))[sid]) return J({ error: 'Bad request.' }, 400);
+    const v = await getJ(R, 'social/views.json', {}); v[sid] = (v[sid] || 0) + 1;
+    await putJ(R, 'social/views.json', v);
     return J({ ok: 1 });
   }
 
@@ -156,6 +218,10 @@ async function social({ request, env, m, path, me, meEmail, R }) {
       const c = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uid: me, name, text, t: Date.now(), ...(parent ? { parent, to } : {}) };
       all.push(c);
       await R.put(ck, JSON.stringify(all.slice(-MAX_COMMENTS)), { httpMetadata: { contentType: 'application/json' } });
+      if (parent) {
+        const tgt = all.find(x => x.id === String(b.re || '')) || all.find(x => x.id === parent);
+        if (tgt && tgt.uid !== me) await pushNotif(R, tgt.uid, { type: 're', story, from: name, text: text.slice(0, 80), t: Date.now() });
+      }
       return J({ ok: 1, id: c.id });
     }
     if (m === 'DELETE' && path.length === 3 && CID.test(path[2])) {
@@ -235,14 +301,24 @@ export async function onRequest({ request, env }) {
     // everything else changes data: sign-in + must be the story's owner
     if (!me) return needMe();
     const ix = await readIx(), cur = ix[id];
+    // moderators / admins can take down anyone's story
+    if (m === 'DELETE' && path.length === 2 && cur && cur.authorUid !== me && await isStaff(R, env, me, meEmail)) {
+      await wipe(id); delete ix[id]; await writeIx(ix);
+      try { await R.delete('social/c/' + id + '.json'); await pushNotif(R, cur.authorUid, { type: 'rm', name: cur.name, t: Date.now() }); } catch (e) {}
+      return J({ ok: 1 });
+    }
     if (cur && cur.authorUid !== me) return J({ error: 'This story belongs to someone else.' }, 403);
 
     if (m === 'PUT' && path.length === 2) {
       const b = await body(); if (!b) return J({ error: 'Bad request.' }, 400);
       const chapters = (Array.isArray(b.chapters) ? b.chapters : []).slice(0, 200)
         .filter(c => c && ID.test(String(c.id || ''))).map(c => ({ id: String(c.id), name: cut(c.name, MAX_CHAPTER_NAME), pages: Math.max(0, Math.min(999, +c.pages || 0)) }));
-      ix[id] = { id, name: cut(b.name, MAX_STORY_NAME), genre: cut(b.genre, 40), syn: cut(b.syn, 600), thumb: imgOk(b.thumb, 300000) ? b.thumb : '', author: cut(b.author, 30), authorUid: me, updated: Date.now(), chapters };
+      const genres = (Array.isArray(b.genres) ? b.genres : []).map(g => cut(g, 40)).filter(Boolean).slice(0, 3);
+      ix[id] = { id, name: cut(b.name, MAX_STORY_NAME), genre: genres[0] || cut(b.genre, 40), genres, syn: cut(b.syn, 600), thumb: imgOk(b.thumb, 300000) ? b.thumb : '', author: cut(b.author, 30), authorUid: me, updated: Date.now(), chapters };
+      const had = new Set(((cur && cur.chapters) || []).filter(c => c.pages > 0).map(c => c.id));
+      const fresh = chapters.filter(c => c.pages > 0 && !had.has(c.id));
       await writeIx(ix);
+      if (cur && fresh.length) { try { await notifyFollowers(R, id, { type: 'ch', story: id, name: ix[id].name, ch: fresh[fresh.length - 1].name, t: Date.now() }); } catch (e) {} }
       return J({ ok: 1 });
     }
     if (m === 'DELETE' && path.length === 2) {
