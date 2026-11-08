@@ -9,8 +9,9 @@
 //
 // Routes
 //   GET    tally                      -> {"s_<storyId>": {up,dn,mine}, ...}   (all story votes, one call)
-//   PUT    vote   {id,v,story?}       -> v is 1, -1 or 0. id is "s_<storyId>" or "c_<commentId>" (comments also send story)
-//   GET    comments/:story            -> {comments:[{id,uid,name,text,t,up,dn,mine}]}  newest first
+//   PUT    vote   {id,v,story?}       -> v is 1, -1 or 0. id is "s_<storyId>", "e_<chapterId>" or "c_<commentId>" (comments also send story)
+//   GET    comments/:thread           ->  (thread = story id, or "e_<chapterId>" for a chapter)
+//                                     {comments:[{id,uid,name,text,t,up,dn,mine}]}  newest first
 //   POST   comments/:story {text,name}-> adds a comment
 //   DELETE comments/:story/:cid       -> removes your own comment
 
@@ -67,12 +68,12 @@ export async function onRequest({ request, env }) {
     let b; try { b = await request.json(); } catch (e) { return J({ error: 'Bad request.' }, 400); }
     const id = String(b.id || ''), v = +b.v;
     if (![1, -1, 0].includes(v)) return J({ error: 'Bad vote.' }, 400);
-    let key, pre, pick;
-    if (/^s_[\w-]{1,62}$/.test(id)) { pre = 'social/v/' + id + '/'; key = pre + me; pick = ''; }
-    else if (/^c_[\w-]{1,22}$/.test(id) && ID.test(b.story || '')) { pre = 'social/cv/' + b.story + '/' + id.slice(2) + '/'; key = pre + me; pick = ''; }
+    let key, pre;
+    if (/^[se]_[\w-]{1,62}$/.test(id)) { pre = 'social/v/' + id + '/'; key = pre + me; }
+    else if (/^c_[\w-]{1,22}$/.test(id) && ID.test(b.story || '')) { pre = 'social/cv/' + b.story + '/' + id.slice(2) + '/'; key = pre + me; }
     else return J({ error: 'Bad vote.' }, 400);
     if (v) await R.put(key, '', { customMetadata: { v: String(v) } }); else await R.delete(key);
-    return J((await scan(R, pre, me))[pick] || none);
+    return J((await scan(R, pre, me))[''] || none);
   }
 
   if (path[0] === 'comments' && ID.test(path[1] || '')) {
