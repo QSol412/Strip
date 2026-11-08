@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head>
-<script>(function(s){s.dataset.zone='12215702',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Strip — webtoon sketchpad</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:wght@400;700&display=swap">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Strip — webtoon sketchpad</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:wght@400;700&display=swap">
 <style>
 :root{--bg:#e8e8ea;--ui:rgba(255,255,255,.88);--ink:#1c1d22;--mute:#80838d;--line:rgba(0,0,0,.09);--acc:#6a67ff;--sh:0 10px 34px rgba(20,20,40,.16);color-scheme:light dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#141519;--ui:rgba(38,40,47,.88);--ink:#ecedf1;--mute:#8e919b;--line:rgba(255,255,255,.1);--sh:0 10px 34px rgba(0,0,0,.5)}}
@@ -1519,5 +1519,7 @@ document.querySelectorAll('button[title]:not([aria-label])').forEach(b=>b.setAtt
  $('#cwp').onclick=()=>{tgt=tgt>=2?2:0;cwSync()};$('#cws').onclick=()=>{tgt=tgt>=2?3:1;cwSync()};cwSync()})();
 </script><script>
 
+/* ad: loads only while the home screen is open, at most once per AD_GAP minutes per device */
+(()=>{const AD_GAP=20,K='strip-ad-at',h=document.getElementById('home');let on=0;const go=()=>{if(on||!h.classList.contains('on'))return;let t=0;try{t=+localStorage.getItem(K)||0}catch(_){}if(Date.now()-t<AD_GAP*6e4)return;on=1;try{localStorage.setItem(K,Date.now())}catch(_){}const s=document.createElement('script');s.dataset.zone='12215702';s.src='https://n6wxm.com/vignette.min.js';document.body.appendChild(s)};new MutationObserver(go).observe(h,{attributes:true,attributeFilter:['class']});go()})();
 </script>
 </body></html>
