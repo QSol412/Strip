@@ -28,6 +28,7 @@ const ID = /^[\w-]{1,64}$/, KEY = /^[\w-]{1,80}$/;
 const cut = (v, n) => String(v == null ? '' : v).slice(0, n);
 const imgOk = (v, max) => typeof v === 'string' && v.length <= max && /^data:image\/(webp|png|jpeg|jpg);base64,/.test(v);
 const IX = 'online/index.json';
+const MAX_STORY_NAME = 200, MAX_CHAPTER_NAME = 120;   // story / chapter titles (was 80)
 
 async function verifyGoogle(tok, env) {
   const [h, p, sig] = tok.split('.');
@@ -40,6 +41,80 @@ async function verifyGoogle(tok, env) {
   const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, unb64u(sig), TE.encode(h + '.' + p));
   if (!ok || pl.aud !== env.GOOGLE_CLIENT_ID || !/^(https:\/\/)?accounts\.google\.com$/.test(pl.iss) || pl.exp * 1000 < Date.now()) throw 0;
   return pl.sub;
+}
+
+const CID = /^[\w-]{1,24}$/;
+const MAX_COMMENTS = 300, MAX_TEXT = 500;
+
+// Count votes under a prefix. Result is keyed by whatever sits between the prefix and the voter id.
+async function scan(R, prefix, me) {
+  const out = {}; let cur, n = 0;
+  do {
+    const l = await R.list({ prefix, cursor: cur, include: ['customMetadata'] });
+    for (const o of l.objects) {
+      const p = o.key.slice(prefix.length).split('/'), voter = p.pop(), id = p.join('/');
+      const v = +(o.customMetadata && o.customMetadata.v) || 0;
+      const x = out[id] || (out[id] = { up: 0, dn: 0, mine: 0 });
+      if (v > 0) x.up++; else if (v < 0) x.dn++;
+      if (me && voter === me) x.mine = v;
+    }
+    cur = l.truncated ? l.cursor : null;
+  } while (cur && ++n < 20);
+  return out;
+}
+
+// ---- votes + comments (/api/social/*) -- handled here so it works even if the
+// separate functions/api/social/ file is missing or not picked up by Pages.
+async function social({ request, env, m, path, me, R }) {
+  const needMe = () => J({ error: 'Please sign in again.' }, 401);
+  const none = { up: 0, dn: 0, mine: 0 };
+
+  if (m === 'GET' && path[0] === 'tally') return J(await scan(R, 'social/v/', me));
+
+  if (m === 'PUT' && path[0] === 'vote') {
+    if (!me) return needMe();
+    let b; try { b = await request.json(); } catch (e) { return J({ error: 'Bad request.' }, 400); }
+    const id = String(b.id || ''), v = +b.v;
+    if (![1, -1, 0].includes(v)) return J({ error: 'Bad vote.' }, 400);
+    let key, pre;
+    if (/^[se]_[\w-]{1,62}$/.test(id)) { pre = 'social/v/' + id + '/'; key = pre + me; }
+    else if (/^c_[\w-]{1,22}$/.test(id) && ID.test(b.story || '')) { pre = 'social/cv/' + b.story + '/' + id.slice(2) + '/'; key = pre + me; }
+    else return J({ error: 'Bad vote.' }, 400);
+    if (v) await R.put(key, '', { customMetadata: { v: String(v) } }); else await R.delete(key);
+    return J((await scan(R, pre, me))[''] || none);
+  }
+
+  if (path[0] === 'comments' && ID.test(path[1] || '')) {
+    const story = path[1], ck = 'social/c/' + story + '.json';
+    const load = async () => { const o = await R.get(ck); try { return o ? await o.json() : []; } catch (e) { return []; } };
+    if (m === 'GET' && path.length === 2) {
+      const all = await load(), votes = await scan(R, 'social/cv/' + story + '/', me);
+      return J({ comments: all.slice(-100).reverse().map(c => ({ ...c, ...(votes[c.id] || none) })) });
+    }
+    if (m === 'POST' && path.length === 2) {
+      if (!me) return needMe();
+      let b; try { b = await request.json(); } catch (e) { return J({ error: 'Bad request.' }, 400); }
+      const text = String(b.text || '').trim().slice(0, MAX_TEXT), name = String(b.name || '').trim().slice(0, 30);
+      if (!text) return J({ error: 'Write something first.' }, 400);
+      const all = await load();
+      const last = all.filter(c => c.uid === me).pop();
+      if (last && Date.now() - last.t < 3000) return J({ error: 'Slow down a little.' }, 429);
+      const c = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uid: me, name, text, t: Date.now() };
+      all.push(c);
+      await R.put(ck, JSON.stringify(all.slice(-MAX_COMMENTS)), { httpMetadata: { contentType: 'application/json' } });
+      return J({ ok: 1, id: c.id });
+    }
+    if (m === 'DELETE' && path.length === 3 && CID.test(path[2])) {
+      if (!me) return needMe();
+      const all = await load(), keep = all.filter(c => !(c.id === path[2] && c.uid === me));
+      if (keep.length === all.length) return J({ error: 'You can only delete your own comments.' }, 403);
+      await R.put(ck, JSON.stringify(keep), { httpMetadata: { contentType: 'application/json' } });
+      const l = await R.list({ prefix: 'social/cv/' + story + '/' + path[2] + '/' });
+      if (l.objects.length) await R.delete(l.objects.map(o => o.key));
+      return J({ ok: 1 });
+    }
+  }
+  return J({ error: 'Not found.' }, 404);
 }
 
 export async function onRequest({ request, env }) {
@@ -60,6 +135,7 @@ export async function onRequest({ request, env }) {
   let me = null;
   if (bearer) { try { me = await verifyGoogle(bearer, env); } catch (e) { me = null; } }
   const needMe = () => J({ error: 'Please sign in again.' }, 401);
+  if (path[0] === 'social') return social({ request, env, m, path: path.slice(1), me, R });
   const body = async () => { try { return await request.json(); } catch (e) { return null; } };
   const wipe = async id => {
     let cur;
@@ -105,8 +181,8 @@ export async function onRequest({ request, env }) {
     if (m === 'PUT' && path.length === 2) {
       const b = await body(); if (!b) return J({ error: 'Bad request.' }, 400);
       const chapters = (Array.isArray(b.chapters) ? b.chapters : []).slice(0, 200)
-        .filter(c => c && ID.test(String(c.id || ''))).map(c => ({ id: String(c.id), name: cut(c.name, 80), pages: Math.max(0, Math.min(999, +c.pages || 0)) }));
-      ix[id] = { id, name: cut(b.name, 80), genre: cut(b.genre, 40), syn: cut(b.syn, 600), thumb: imgOk(b.thumb, 300000) ? b.thumb : '', author: cut(b.author, 30), authorUid: me, updated: Date.now(), chapters };
+        .filter(c => c && ID.test(String(c.id || ''))).map(c => ({ id: String(c.id), name: cut(c.name, MAX_CHAPTER_NAME), pages: Math.max(0, Math.min(999, +c.pages || 0)) }));
+      ix[id] = { id, name: cut(b.name, MAX_STORY_NAME), genre: cut(b.genre, 40), syn: cut(b.syn, 600), thumb: imgOk(b.thumb, 300000) ? b.thumb : '', author: cut(b.author, 30), authorUid: me, updated: Date.now(), chapters };
       await writeIx(ix);
       return J({ ok: 1 });
     }
