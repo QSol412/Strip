@@ -918,12 +918,14 @@ $('#tRs').onclick=()=>{const t=PG.ts;if(t){t.pts=null;SE=0;$('#tShp').classList.
 zh=()=>{if(!PG)return;if(IM.on)imUI();if(tool==='panel'&&PG.sel)drawPanels();if(tool==='text'&&PG.ts)drawTexts()};
 /* ---------- home: stories (folders) and chapters, saved in this browser ---------- */
 const DB=(()=>{let db=null;const mem={s:{},p:{}},open=new Promise(r=>{try{const q=indexedDB.open('strip',1);q.onupgradeneeded=()=>{q.result.createObjectStore('s',{keyPath:'id'});q.result.createObjectStore('p',{keyPath:'id'})};q.onsuccess=()=>{db=q.result;r()};q.onerror=q.onblocked=()=>r()}catch(e){r()}}),
- w=(st,f)=>new Promise(r=>{try{const t=db.transaction(st,'readwrite');f(t.objectStore(st));t.oncomplete=t.onerror=t.onabort=()=>r();setTimeout(r,8000)}catch(e){r()}});
+ w=(st,f)=>new Promise(r=>{try{const t=db.transaction(st,'readwrite');f(t.objectStore(st));t.oncomplete=()=>r(1);t.onerror=t.onabort=()=>r(0);setTimeout(()=>r(0),8000)}catch(e){r(0)}}),
+ nb=r=>{if(r&&r.pages)r.pages.forEach(p=>(p.layers||[]).forEach(l=>{if(l.png&&!(l.png instanceof Blob)&&l.png.ab)l.png=new Blob([l.png.ab],{type:l.png.type||'image/png'})}));return r};
  return{ok:()=>!!db,
- all:st=>open.then(()=>db?new Promise(r=>{try{const q=db.transaction(st).objectStore(st).getAll();q.onsuccess=()=>r(q.result);q.onerror=()=>r([])}catch(e){r([])}}):Object.values(mem[st])),
- get:(st,id)=>open.then(()=>db?new Promise(r=>{try{const q=db.transaction(st).objectStore(st).get(id);q.onsuccess=()=>r(q.result);q.onerror=()=>r()}catch(e){r()}}):mem[st][id]),
- put:(st,o)=>open.then(()=>db?w(st,s=>s.put(o)):void(mem[st][o.id]=o)),
+ all:st=>open.then(()=>db?new Promise(r=>{try{const q=db.transaction(st).objectStore(st).getAll();q.onsuccess=()=>r(q.result.map(nb));q.onerror=()=>r([])}catch(e){r([])}}):Object.values(mem[st])),
+ get:(st,id)=>open.then(()=>db?new Promise(r=>{try{const q=db.transaction(st).objectStore(st).get(id);q.onsuccess=()=>r(nb(q.result));q.onerror=()=>r()}catch(e){r()}}):mem[st][id]),
+ put:(st,o)=>open.then(async()=>{if(!db){mem[st][o.id]=o;return 1}let ok=await w(st,s=>s.put(o));if(!ok&&st==='p'&&o.pages){try{const c={...o,pages:await Promise.all(o.pages.map(async pg=>({...pg,layers:await Promise.all(pg.layers.map(async l=>l.png instanceof Blob?{...l,png:{ab:await l.png.arrayBuffer(),type:l.png.type}}:l))})))};ok=await w(st,s=>s.put(c))}catch(e){}}return ok}),
  del:(st,id)=>open.then(()=>db?w(st,s=>s.delete(id)):void delete mem[st][id])}})();
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6),esc=t=>t.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),when=t=>new Date(t).toLocaleDateString(undefined,{month:'short',day:'numeric'});
 function ask(title,val,okLabel,pre){return new Promise(res=>{const d=$('#dlg'),i=$('#dI');$('#dS').hidden=!pre;$('#dT').textContent=title;i.hidden=val===null;i.value=val||'';$('#dO').textContent=okLabel||'OK';d.classList.add('open');if(val!==null)setTimeout(()=>{i.focus();i.select()},50);
  const done=v=>{d.classList.remove('open');res(v)};$('#dO').onclick=()=>done(val===null?true:(i.value.trim()||null));$('#dX').onclick=()=>done(null);i.onkeydown=e=>{if(e.key==='Enter')$('#dO').click();if(e.key==='Escape')done(null)}})}
@@ -941,7 +943,7 @@ function coverImg(){const p=PGS[0];if(!p)return'';const c=E('canvas');c.width=24
 async function save(){try{await Promise.race([save0(),new Promise((_,j)=>setTimeout(j,25000))])}catch(e){dirty=1;setSv('Memory only');if(Date.now()-(save.tw||0)>60000){save.tw=Date.now();toast('Save failed: work is only in memory. Export a backup.')}}}
 async function save0(){if(!CH||!dirty)return;try{await READY}catch(e){}dirty=0;dirtyAt=0;setSv('Saving…');const cur=CH,pages=[];let pix=0;
  for(const p of PGS){const ls=[];for(const l of p.layers){if(!l.png||l.d){l.d=0;pix=1;l.png=await new Promise(r=>{l.c.toBlob(r);setTimeout(()=>r(l.png||null),12000)})}ls.push({name:l.name,vis:l.vis,op:l.op,bl:l.bl,bg:l.bg||0,dp:l.dp||0,cm:l.cm||0,fo:l.fo||'',png:l.png})}pages.push({W:p.W,H:p.H,n:p.n,layers:ls,panels:p.panels,texts:p.texts})}
- await DB.put('p',{id:cur.cid,pages});const st=await DB.get('s',cur.sid);if(st){st.updated=Date.now();const c=st.chapters.find(c=>c.id===cur.cid);if(c)c.pages=pages.length;if(pix||!st.thumb)st.thumb=coverImg();await DB.put('s',st)}if(!dirty)setSv(DB.ok()?'Saved ✓':'Memory only');if(!DB.ok()&&!save.nw){save.nw=1;toast('Browser storage unavailable: export a backup before closing')}}
+ const okp=await DB.put('p',{id:cur.cid,pages});const st=await DB.get('s',cur.sid);if(st){st.updated=Date.now();const c=st.chapters.find(c=>c.id===cur.cid);if(c)c.pages=pages.length;if(pix||!st.thumb)st.thumb=coverImg();await DB.put('s',st)}if(!dirty)setSv(DB.ok()?(okp?'Saved ✓':'Save failed'):'Memory only');if(DB.ok()&&!okp&&!save.nf){save.nf=1;toast('Could not save on this device. Storage may be full. Export a backup.')}if(!DB.ok()&&!save.nw){save.nw=1;toast('Browser storage unavailable: export a backup before closing')}}
 const touch=()=>{if(!CH)return;dirty=1;if(!dirtyAt)dirtyAt=Date.now();setSv('Unsaved…');clearTimeout(svT);svT=setTimeout(function go(){if(st){svT=setTimeout(go,1500);return}sv=sv.catch(()=>{}).then(save)},Date.now()-dirtyAt>30000?1500:4000)},flush=()=>{clearTimeout(svT);sv=sv.catch(()=>{}).then(save);return sv.catch(()=>{})};
 /* drawing before any story exists used to be lost on reload: start an "Untitled story" on the first stroke so autosave has somewhere to go */
 async function autoStart(){if(CH||autoStart.b)return;autoStart.b=1;try{const s={id:uid(),name:'Untitled story',created:Date.now(),updated:Date.now(),chapters:[],thumb:''},c={id:uid(),name:'Chapter 1',pages:PGS.length,pre:+($('#dS')&&$('#dS').value)||0};s.chapters.push(c);await DB.put('s',s);CH={sid:s.id,cid:c.id};toast('Autosaving to \u201cUntitled story\u201d');touch()}catch(e){}autoStart.b=0}
@@ -1053,9 +1055,11 @@ const ON=(()=>{
   return new Promise((res,rej)=>{const ov=E('div','onov'),cd=E('div','oncd','<h3>Sign in to post</h3><p>Reading never needs an account.</p>'),bx=E('div','onb'),cx=E('button','txt','Cancel'),done=(f,v)=>{ov.remove();f(v)};cd.append(bx,cx);ov.append(cd);document.body.append(ov);cx.onclick=()=>done(rej,new Error('cancelled'));
    google.accounts.id.initialize({client_id:OCFG.clientId,callback:r=>{try{const p=JSON.parse(u8(r.credential.split('.')[1]));AU={uid:p.sub,name:p.name||'Creator',cred:r.credential,exp:p.exp*1000};keep();done(res,AU)}catch(e){done(rej,new Error('Sign-in failed. Please try again.'))}}});
    google.accounts.id.renderButton(bx,{theme:'outline',size:'large',text:'signin_with',shape:'pill'})})}
+ const WP=(()=>{try{return E('canvas').toDataURL('image/webp').startsWith('data:image/webp')}catch(e){return 0}})();
  const enc=async b=>{const bm=await createImageBitmap(b),c=E('canvas');let w=bm.width,h=bm.height;if(w>900){h=Math.round(h*900/w);w=900}
-  for(let t=0;t<5;t++){c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(bm,0,0,w,h);const d=x.getImageData(0,0,w,h).data;let any=0;for(let i=3;i<d.length;i+=4)if(d[i]){any=1;break}if(!any)return null;
-   for(const q of[.82,.62,.45]){const u=c.toDataURL('image/webp',q);if(u.length<=1000000)return u}w=Math.round(w*.8);h=Math.round(h*.8)}
+  for(let t=0;t<(WP?5:9);t++){c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(bm,0,0,w,h);const d=x.getImageData(0,0,w,h).data;let any=0;for(let i=3;i<d.length;i+=4)if(d[i]){any=1;break}if(!any)return null;
+   if(WP){for(const q of[.82,.62,.45]){const u=c.toDataURL('image/webp',q);if(u.length<=1000000)return u}w=Math.round(w*.8);h=Math.round(h*.8)}
+   else{const u=c.toDataURL('image/png');if(u.length<=1000000)return u;const k=Math.max(.6,Math.sqrt(1000000/u.length)*.95);w=Math.round(w*k);h=Math.round(h*k)}}
   throw new Error('A page is too detailed to post. Simplify or merge layers.')};
  async function post(st,say){await flush();await api('/me',{method:'PUT',body:lsg('strip-me',{})},1).catch(()=>{});const chs=st.chapters.filter(c=>c.pages>0);if(!chs.length)throw new Error('Draw at least one chapter first.');
   const sid=st.id,head={name:st.name,genre:st.genre||'Slice of Life',syn:st.syn||'',thumb:st.thumb||'',author:lsg('strip-me',{}).name||''};
@@ -1074,7 +1078,7 @@ const ON=(()=>{
 const ONL={list:[],at:0,async load(f){if(!onCfg()||(!f&&Date.now()-this.at<60000))return;this.at=Date.now();try{const l=await ON.list(),k=a=>a.map(x=>x.id+':'+x.updated).join();if(k(l)!==k(this.list)){this.list=l;if($('#home').classList.contains('on'))renderHome()}}catch(e){}}};
 const penName=()=>profEdit();
 async function avatar(f){const bm=await createImageBitmap(f),c=E('canvas'),z=160,m=Math.min(bm.width,bm.height);c.width=c.height=z;c.getContext('2d').drawImage(bm,(bm.width-m)/2,(bm.height-m)/2,m,m,0,0,z,z);return c.toDataURL('image/webp',.8)}
-const avEl=(p,z)=>{const a=E('div','pav');a.style.cssText='width:'+z+'px;height:'+z+'px;font-size:'+z*.42+'px';if(p.av)a.style.backgroundImage='url('+p.av+')';else a.textContent=((p.name||'?')[0]||'?').toUpperCase();return a};
+const avEl=(p,z)=>{const a=E('div','pav');a.style.cssText='width:'+z+'px;height:'+z+'px;font-size:'+z*.42+'px';if(p.av)a.style.backgroundImage='url('+p.av+')';else if(p.name&&p.name.trim())a.textContent=p.name.trim()[0].toUpperCase();else{a.innerHTML='<svg viewBox="0 0 24 24" style="width:'+z*.58+'px;height:'+z*.58+'px;stroke-width:2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>'}return a};
 function proBtn(){const b=$('#hPro');if(b)b.replaceChildren(avEl(lsg('strip-me',{}),34))}
 function profMenu(){const me=lsg('strip-me',{}),u=ON.user(),ov=E('div','onov'),cd=E('div','oncd'),h=E('h3'),w=E('div','wb'),btn=(t,f,pri)=>{const b=E('button','txt'+(pri?' pri':''),t);b.onclick=()=>{ov.remove();f()};w.append(b)};
  h.textContent=me.name||'Your profile';cd.append(avEl(me,72),h);if(me.bio){const p=E('p','hn');p.textContent=me.bio;cd.append(p)}
