@@ -277,7 +277,12 @@ button[data-v=discover].hpop svg{animation:hspin .5s cubic-bezier(.2,1.2,.3,1)}b
 .tcd .tdots{margin:2px 0}.tcd .wb{width:100%;flex-wrap:nowrap;align-items:center}.tcd .tsk{margin-right:auto}
 .tar{position:absolute;z-index:-1;width:14px;height:14px;border-radius:3px;background:var(--bg);transform:rotate(45deg)}
 @media(prefers-reduced-motion:reduce){.trg{animation:none}.tcd{transition:none}}
-</style><style>.vt{display:flex;align-items:center;gap:6px;margin-top:10px}.vt button{border:1px solid var(--line);background:var(--ui);color:var(--mute);border-radius:999px;padding:6px 12px;font:700 13px system-ui;cursor:pointer}.vt button.on{background:var(--acc);color:#fff;border-color:var(--acc)}.vt b{min-width:24px;text-align:center;font:800 14px system-ui}.vt.sm{margin:0}.vt.sm button{padding:3px 9px;font-size:11px}.cmi{padding:10px 0;border-top:1px solid var(--line)}.cmh{display:flex;gap:8px;align-items:baseline}.cmh em{font-size:11px;color:var(--mute);font-style:normal}.cmi p{margin:4px 0 6px;font-size:14px;white-space:pre-wrap;word-break:break-word}.cmf{display:flex;gap:8px;align-items:center}</style></head><body>
+</style><style>.vt{display:flex;align-items:center;gap:6px;margin-top:10px}.vt button{border:1px solid var(--line);background:var(--ui);color:var(--mute);border-radius:999px;padding:6px 12px;font:700 13px system-ui;cursor:pointer}.vt button.on{background:var(--acc);color:#fff;border-color:var(--acc)}.vt b{min-width:24px;text-align:center;font:800 14px system-ui}.vt.sm{margin:0}.vt.sm button{padding:3px 9px;font-size:11px}.cmi{padding:10px 0;border-top:1px solid var(--line)}.cmh{display:flex;gap:8px;align-items:baseline}.cmh em{font-size:11px;color:var(--mute);font-style:normal}.cmi p{margin:4px 0 6px;font-size:14px;white-space:pre-wrap;word-break:break-word}.cmf{display:flex;gap:8px;align-items:center}</style><style>
+.hs span{white-space:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.hr span,.wr>span{white-space:normal;overflow-wrap:anywhere}
+.wh h2,.wd h2{overflow-wrap:anywhere}
+.wc span{overflow-wrap:anywhere;-webkit-line-clamp:3}
+</style></head><body>
 <div id="view"><div id="stage"><div id="guide"></div><svg id='sl'><path/></svg><div id='symax'></div><div id='gdov'></div><div id='xfov'></div></div><div id="rg"><i></i></div></div>
 <nav id="tools" class="glass">
 <button class='ib' id='bHome' title='Home: stories and chapters'><svg viewBox='0 0 24 24'><path d='M4 11 12 4l8 7'/><path d='M6 10v10h12V10'/><path d='M10 20v-5h4v5'/></svg></button><i class='sep'></i><button class="ib on" id="bBrush" title="Brushes (B)"><svg viewBox="0 0 24 24"><path d="M4 20l1-4L17 4l3 3L8 19z"/><path d="M14 7l3 3"/></svg></button>
@@ -990,7 +995,7 @@ async function pubDetails(st,ok){const sel=$('#dS'),old=sel.innerHTML;sel.innerH
 const pubSw=s=>{const l=E('label','wsw','<input type="checkbox"><i></i><span>Publish to Discover</span>'),i=l.querySelector('input');i.checked=!!s.pub;l.onclick=e=>e.stopPropagation();
  i.onchange=async()=>{if(i.checked){if((!s.genre||!s.syn)&&!await pubDetails(s,'Publish')){i.checked=false;return}s.pub=1;toast(s.chapters.some(c=>c.pages>0)?'Published to Discover':'Published. Draw a chapter so readers can open it.')}else{s.pub=0;toast('Removed from Discover')}await DB.put('s',s);renderHome()};return l};
 async function addCh(st){const nm=await ask('Chapter name','Chapter '+(st.chapters.length+1),'Create',1);if(!nm)return;const c={id:uid(),name:nm,pages:0,pre:+$('#dS').value};st.chapters.push(c);st.updated=Date.now();await DB.put('s',st);openChapter(st.id,c.id)}
-async function newStory(){const nm=await ask('Name your story','','Create');if(!nm)return;const s={id:uid(),name:nm,created:Date.now(),updated:Date.now(),chapters:[],thumb:''};await DB.put('s',s);HV='create';HS=s.id;renderHome();addCh(s)}
+async function newStory(){const nm0=await ask('Name your story','','Create');if(!nm0)return;const nm=nm0.slice(0,200);const s={id:uid(),name:nm,created:Date.now(),updated:Date.now(),chapters:[],thumb:''};await DB.put('s',s);HV='create';HS=s.id;renderHome();addCh(s)}
 function vDisc(B,all){const q=HQ.trim().toLowerCase(),l=all.filter(s=>(HG==='All'||s.genre===HG)&&(!q||[s.name,s.author,s.genre,s.syn].join(' ').toLowerCase().includes(q)));
  if(!all.length){B.append(welcome());return}if(!l.length){B.append(E('p','hn','No stories match. Try another genre or search.'));return}
  let adc=0;const by=f=>[...l].sort(f),sec=(t,a,car)=>{const d=E('section','wsec',`<h3>${t}</h3>`),g=E('div','wg'+(car?' car':''));a.forEach((s,i)=>{g.append(card(s));if(!car){const ad=window.stripAd&&stripAd(i,a.length);if(ad)g.append(ad)}});d.append(g);B.append(d);if(car){adc+=a.length;if(adc>=10){const ad=window.stripAd&&stripAd(0,0,1);if(ad)B.append(ad);adc=0}}};
@@ -1042,7 +1047,7 @@ function thumbEdit(st){return new Promise(res=>{const ov=E('div','onov'),cd=E('d
  t1.append(pn,ea,mv,up);t2.append(lb('Colour',pc),lb('Size',ps),lb('Back',bg),un,cr);row.append(ok,au,no);
  cd.append(cv,sl,hn,t1,t2,er,row,f);ov.append(cd);document.body.append(ov);setM('pen');draw()})}
 function vManage(B,A,st){const rn=E('button','txt','Rename'),dl=E('button','txt','Delete story'),ed=E('button','txt','Details');
- rn.onclick=async()=>{const nm=await ask('Rename story',st.name,'Save');if(nm){st.name=nm;await DB.put('s',st);renderHome()}};
+ rn.onclick=async()=>{const nm0=await ask('Rename story',st.name,'Save');const nm=nm0&&nm0.slice(0,200);if(nm){st.name=nm;await DB.put('s',st);renderHome()}};
  dl.onclick=async()=>{if(await ask('Delete \u201c'+st.name+'\u201d and all its chapters? This cannot be undone, so export a backup first.',null,'Delete')){for(const c of st.chapters)await DB.del('p',c.id);await DB.del('s',st.id);if(CH&&CH.sid===st.id)CH=null;HS=null;renderHome()}};
  ed.onclick=async()=>{if(await pubDetails(st,'Save')){await DB.put('s',st);renderHome()}};const th=E('button','txt','Thumbnail');th.onclick=async()=>{if(await thumbEdit(st))renderHome()};A.append(ed,th,rn,dl);
  const last=st.chapters[st.chapters.length-1],go=E('button','txt pri',CH&&CH.sid===st.id?'Continue':last?'Open in Canvas':'+ New Chapter');go.onclick=()=>{if(CH&&CH.sid===st.id)openChapter(CH.sid,CH.cid);else if(last)openChapter(st.id,last.id);else addCh(st)};
