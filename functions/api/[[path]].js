@@ -89,7 +89,7 @@ async function social({ request, env, m, path, me, R }) {
     const load = async () => { const o = await R.get(ck); try { return o ? await o.json() : []; } catch (e) { return []; } };
     if (m === 'GET' && path.length === 2) {
       const all = await load(), votes = await scan(R, 'social/cv/' + story + '/', me);
-      return J({ comments: all.slice(-100).reverse().map(c => ({ ...c, ...(votes[c.id] || none) })) });
+      return J({ comments: all.slice(-200).reverse().map(c => ({ ...c, ...(votes[c.id] || none) })) });
     }
     if (m === 'POST' && path.length === 2) {
       if (!me) return needMe();
@@ -97,20 +97,30 @@ async function social({ request, env, m, path, me, R }) {
       const text = String(b.text || '').trim().slice(0, MAX_TEXT), name = String(b.name || '').trim().slice(0, 30);
       if (!text) return J({ error: 'Write something first.' }, 400);
       const all = await load();
+      let parent = '', to = '';
+      if (b.parent) {
+        const p = all.find(x => x.id === String(b.parent));
+        if (!p) return J({ error: 'That comment is gone.' }, 404);
+        parent = p.parent || p.id;                      // replies stay one level deep
+        to = String(b.to || '').trim().slice(0, 30);
+      }
       const last = all.filter(c => c.uid === me).pop();
       if (last && Date.now() - last.t < 3000) return J({ error: 'Slow down a little.' }, 429);
-      const c = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uid: me, name, text, t: Date.now() };
+      const c = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uid: me, name, text, t: Date.now(), ...(parent ? { parent, to } : {}) };
       all.push(c);
       await R.put(ck, JSON.stringify(all.slice(-MAX_COMMENTS)), { httpMetadata: { contentType: 'application/json' } });
       return J({ ok: 1, id: c.id });
     }
     if (m === 'DELETE' && path.length === 3 && CID.test(path[2])) {
       if (!me) return needMe();
-      const all = await load(), keep = all.filter(c => !(c.id === path[2] && c.uid === me));
-      if (keep.length === all.length) return J({ error: 'You can only delete your own comments.' }, 403);
-      await R.put(ck, JSON.stringify(keep), { httpMetadata: { contentType: 'application/json' } });
-      const l = await R.list({ prefix: 'social/cv/' + story + '/' + path[2] + '/' });
-      if (l.objects.length) await R.delete(l.objects.map(o => o.key));
+      const all = await load();
+      if (!all.some(c => c.id === path[2] && c.uid === me)) return J({ error: 'You can only delete your own comments.' }, 403);
+      const gone = new Set([path[2], ...all.filter(c => c.parent === path[2]).map(c => c.id)]);   // its replies go with it
+      await R.put(ck, JSON.stringify(all.filter(c => !gone.has(c.id))), { httpMetadata: { contentType: 'application/json' } });
+      for (const id of gone) {
+        const l = await R.list({ prefix: 'social/cv/' + story + '/' + id + '/' });
+        if (l.objects.length) await R.delete(l.objects.map(o => o.key));
+      }
       return J({ ok: 1 });
     }
   }
