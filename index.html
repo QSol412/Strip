@@ -1031,7 +1031,7 @@ const ON=(()=>{
    for(const q of[.82,.62,.45]){const u=c.toDataURL('image/webp',q);if(u.length<=1000000)return u}w=Math.round(w*.8);h=Math.round(h*.8)}
   throw new Error('A page is too detailed to post. Simplify or merge layers.')};
  async function post(st,say){await flush();const chs=st.chapters.filter(c=>c.pages>0);if(!chs.length)throw new Error('Draw at least one chapter first.');
-  const sid=st.id,head={name:st.name,genre:st.genre||'Slice of Life',syn:st.syn||'',thumb:st.thumb||''};
+  const sid=st.id,head={name:st.name,genre:st.genre||'Slice of Life',syn:st.syn||'',thumb:st.thumb||'',author:lsg('strip-pen','')};
   await api('/stories/'+sid,{method:'PUT',body:{...head,chapters:[]}},1);await api('/stories/'+sid+'/data',{method:'DELETE'},1);
   const meta=[];let n=0;
   for(const c of chs){const rec=await DB.get('p',c.id);if(!rec||!rec.pages||!rec.pages.length)continue;const pj=[];
@@ -1045,14 +1045,15 @@ const ON=(()=>{
    out.push({W:p.W,H:p.H,layers:await mkLayers({layers:arr},p.W,p.H),panels:p.panels||[],texts:p.texts||[]})}return out}
  return{user:()=>AU,signIn,signOut:()=>{AU=null;keep()},post,unpost,list,pages,ads}})();
 const ONL={list:[],at:0,async load(f){if(!onCfg()||(!f&&Date.now()-this.at<60000))return;this.at=Date.now();try{const l=await ON.list(),k=a=>a.map(x=>x.id+':'+x.updated).join();if(k(l)!==k(this.list)){this.list=l;if($('#home').classList.contains('on'))renderHome()}}catch(e){}}};
+async function penName(){const n=await ask('Pick the name readers see as the author (up to 30 characters). Your Google name stays private.',lsg('strip-pen',''),'Save');if(n===null||n===false||!String(n).trim())return 0;lss('strip-pen',String(n).trim().slice(0,30));return 1}
 function onlineBox(st){const d=E('section','wsec onl','<h3>Online</h3>'),p=E('p','hn'),w=E('div','wb'),u=ON.user();d.append(p,w);
  const btn=(t,f,pri)=>{const b=E('button','txt'+(pri?' pri':''),t);b.onclick=async()=>{b.disabled=1;try{await f()}catch(e){if(e.message!=='cancelled')toast(e.message||'Something went wrong.')}b.disabled=0;renderHome()};w.append(b)};
  if(!onCfg()){p.textContent='Anyone can read online stories without an account. Posting is not available right now.'}
  else if(!u){p.textContent='Sign in with Google to post this story. Readers never need an account.';btn('Sign in with Google',ON.signIn,1)}
- else{const on=ONL.list.some(o=>o.id===st.id&&o.authorUid===u.uid);p.textContent='Signed in as '+u.name+'. '+(on?'This story is online.':'This story is only on this device.');
-  btn(on?'Update online':'Post online',async()=>{if(!st.genre||!st.syn){if(!await pubDetails(st,'Continue'))return;await DB.put('s',st)}if(!await ask('Post “'+st.name+'” online? Anyone can read it, and your Google name will show as the author.',null,'Post'))return;await ON.post(st,toast);await ONL.load(1);toast('Posted. Everyone can read it in Discover.')},1);
+ else{const on=ONL.list.some(o=>o.id===st.id&&o.authorUid===u.uid);p.textContent='Posting as '+(lsg('strip-pen','')||u.name)+'. '+(on?'This story is online.':'This story is only on this device.');
+  btn(on?'Update online':'Post online',async()=>{if(!lsg('strip-pen','')&&!await penName())return;if(!st.genre||!st.syn){if(!await pubDetails(st,'Continue'))return;await DB.put('s',st)}if(!await ask('Post “'+st.name+'” online? Anyone can read it, and your pen name will show as the author.',null,'Post'))return;await ON.post(st,toast);await ONL.load(1);toast('Posted. Everyone can read it in Discover.')},1);
   if(on)btn('Take offline',async()=>{if(await ask('Remove “'+st.name+'” from online? Your copy on this device stays.',null,'Remove')){await ON.unpost(st.id);await ONL.load(1);toast('Removed from online.')}});
-  btn('Sign out',async()=>{ON.signOut()})}
+  btn('Pen name',penName);btn('Sign out',async()=>{ON.signOut()})}
  return d}
 /* ---------- ads: a pop-up with a clear Ad label (shows an example until your service has real ads) ---------- */
 const ADS={list:null,async get(){return[]},
