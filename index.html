@@ -237,7 +237,7 @@ input[type=range]:active::-webkit-slider-thumb{transform:scale(1.25)}
 button[data-v=discover].hpop svg{animation:hspin .5s cubic-bezier(.2,1.2,.3,1)}button[data-v=library].hpop svg{animation:htilt .5s ease}.hsb.hpop svg{animation:hsrch .45s ease}#bCreate.hpop svg{animation:hplus .45s cubic-bezier(.2,1.2,.3,1)}
 @media (prefers-reduced-motion:reduce){.hpop,.hpop svg{animation:none!important}}
 #bCreate:hover{transform:scale(1.06)}#bCreate:active{transform:scale(.92)}
-.onov{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.5);display:grid;place-items:center}.oncd{background:var(--bg);color:var(--ink);border-radius:20px;padding:20px;width:min(320px,calc(100vw - 40px));display:flex;flex-direction:column;align-items:center;gap:12px;box-shadow:var(--sh)}.oncd h3{margin:0;font:800 18px system-ui}.oncd p{margin:0;font-size:13px;color:var(--mute)}.onb{min-height:44px}.onl .wb{flex-wrap:wrap}
+.onov{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.5);display:grid;place-items:center}.oncd{background:var(--bg);color:var(--ink);border-radius:20px;padding:20px;width:min(320px,calc(100vw - 40px));display:flex;flex-direction:column;align-items:center;gap:12px;box-shadow:var(--sh)}.oncd h3{margin:0;font:800 18px system-ui}.oncd p{margin:0;font-size:13px;color:var(--mute)}.onb{min-height:44px}.pav{border-radius:50%;background:var(--acc) center/cover;color:#fff;display:grid;place-items:center;font-weight:800;flex:none}.pa{color:var(--acc);text-decoration:underline;cursor:pointer}.onl .wb{flex-wrap:wrap}
 :root{--rw:0px!important}
 #rf{left:auto;right:auto;bottom:auto;top:70px;width:220px;height:165px;padding:0;display:block;gap:0;border-radius:14px;background:transparent;border:0;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 10px 30px rgba(0,0,0,.38),0 0 0 2px rgba(255,255,255,.85);overflow:visible;touch-action:none}
 #rf.noimg{background:var(--ui)}#rf.off{display:none}
@@ -975,6 +975,7 @@ function vLib(B,all){const by=k=>all.find(s=>s.key===k),H=LB.h.map(h=>({h,s:by(h
  if(H.length){const d=E('section','wsec','<h3>Continue reading</h3>'),g=E('div','wg car'),cl=E('button','txt','Clear');cl.onclick=()=>{LB.h=[];lss('strip-lib',LB);renderHome()};d.firstChild.append(cl);H.forEach(({h,s})=>g.append(card(s,`Ep. ${h.e+1} \u00b7 ${when(h.t)}`,()=>readStory(s,h.e))));d.append(g);B.append(d)}
  if(M.length){const d=E('section','wsec','<h3>Bookmarks</h3>'),g=E('div','wg');M.forEach((s,i)=>{g.append(card(s));const ad=window.stripAd&&stripAd(i,M.length);if(ad)g.append(ad)});d.append(g);B.append(d)}}
 function vDetail(B,s){const bm=LB.b.includes(s.key),hd=E('div','wd'),wi=E('div','wi',`<small style="font:700 10px system-ui;letter-spacing:.1em;color:var(--acc);text-transform:uppercase">${esc(s.genre)}</small><h2>${esc(s.name)}</h2><em>by ${esc(s.author)} \u00b7 ${s.status}${s.m?` \u00b7 \u2605 ${s.rating} \u00b7 ${fv(s.views)} views`:''}</em><p class="wsy">${esc(s.syn)}</p>`),wb=E('div','wb'),rd=E('button','txt pri',s.eps.length?'Read Ep. 1':'No episodes yet'),bk=E('button','txt',bm?'\u2605 Bookmarked':'\u2606 Bookmark');
+ if(s.online&&s.authorUid){const em=wi.querySelector('em');em.innerHTML=em.innerHTML.replace(esc(s.author),'<a class="pa">'+esc(s.author)+'</a>');const pa=em.querySelector('.pa');if(pa)pa.onclick=()=>profView(s.authorUid)}
  rd.onclick=()=>readStory(s,0);bk.onclick=()=>{LB.b=bm?LB.b.filter(k=>k!==s.key):[s.key,...LB.b];lss('strip-lib',LB);renderHome()};wb.append(rd,bk);
  if(!s.m&&s.src){const ed=E('button','txt','Edit in Studio');ed.onclick=()=>{HV='create';HS=s.id;DSID=null;renderHome()};wb.append(ed)}
  wi.append(wb);hd.append(covEl(s),wi);B.append(hd,E('div','wt',`<span>Episodes (${s.eps.length})</span>`));
@@ -1030,8 +1031,8 @@ const ON=(()=>{
   for(let t=0;t<5;t++){c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(bm,0,0,w,h);const d=x.getImageData(0,0,w,h).data;let any=0;for(let i=3;i<d.length;i+=4)if(d[i]){any=1;break}if(!any)return null;
    for(const q of[.82,.62,.45]){const u=c.toDataURL('image/webp',q);if(u.length<=1000000)return u}w=Math.round(w*.8);h=Math.round(h*.8)}
   throw new Error('A page is too detailed to post. Simplify or merge layers.')};
- async function post(st,say){await flush();const chs=st.chapters.filter(c=>c.pages>0);if(!chs.length)throw new Error('Draw at least one chapter first.');
-  const sid=st.id,head={name:st.name,genre:st.genre||'Slice of Life',syn:st.syn||'',thumb:st.thumb||'',author:lsg('strip-pen','')};
+ async function post(st,say){await flush();await api('/me',{method:'PUT',body:lsg('strip-me',{})},1).catch(()=>{});const chs=st.chapters.filter(c=>c.pages>0);if(!chs.length)throw new Error('Draw at least one chapter first.');
+  const sid=st.id,head={name:st.name,genre:st.genre||'Slice of Life',syn:st.syn||'',thumb:st.thumb||'',author:lsg('strip-me',{}).name||''};
   await api('/stories/'+sid,{method:'PUT',body:{...head,chapters:[]}},1);await api('/stories/'+sid+'/data',{method:'DELETE'},1);
   const meta=[];let n=0;
   for(const c of chs){const rec=await DB.get('p',c.id);if(!rec||!rec.pages||!rec.pages.length)continue;const pj=[];
@@ -1043,17 +1044,28 @@ const ON=(()=>{
  async function pages(s,cid){const m=await api('/stories/'+s.id+'/ch/'+cid,{t:15000}),pj=JSON.parse(m.j),out=[];
   for(const p of pj){const arr=[];for(let i=0;i<p.layers.length;i+=4)arr.push(...await Promise.all(p.layers.slice(i,i+4).map(async o=>{if(!o.k)return{...o,png:null};const r=await api('/stories/'+s.id+'/img/'+o.k,{t:30000});return{...o,png:await(await fetch(r.d)).blob()}})));
    out.push({W:p.W,H:p.H,layers:await mkLayers({layers:arr},p.W,p.H),panels:p.panels||[],texts:p.texts||[]})}return out}
- return{user:()=>AU,signIn,signOut:()=>{AU=null;keep()},post,unpost,list,pages,ads}})();
+ return{user:()=>AU,signIn,signOut:()=>{AU=null;keep()},post,unpost,list,pages,ads,saveMe:p=>api('/me',{method:'PUT',body:p},1),profile:uid=>api('/profiles/'+encodeURIComponent(uid),{t:12000})}})();
 const ONL={list:[],at:0,async load(f){if(!onCfg()||(!f&&Date.now()-this.at<60000))return;this.at=Date.now();try{const l=await ON.list(),k=a=>a.map(x=>x.id+':'+x.updated).join();if(k(l)!==k(this.list)){this.list=l;if($('#home').classList.contains('on'))renderHome()}}catch(e){}}};
-async function penName(){const n=await ask('Pick the name readers see as the author (up to 30 characters). Your Google name stays private.',lsg('strip-pen',''),'Save');if(n===null||n===false||!String(n).trim())return 0;lss('strip-pen',String(n).trim().slice(0,30));return 1}
+const penName=()=>profEdit();
+async function avatar(f){const bm=await createImageBitmap(f),c=E('canvas'),z=160,m=Math.min(bm.width,bm.height);c.width=c.height=z;c.getContext('2d').drawImage(bm,(bm.width-m)/2,(bm.height-m)/2,m,m,0,0,z,z);return c.toDataURL('image/webp',.8)}
+const avEl=(p,z)=>{const a=E('div','pav');a.style.cssText='width:'+z+'px;height:'+z+'px;font-size:'+z*.42+'px';if(p.av)a.style.backgroundImage='url('+p.av+')';else a.textContent=((p.name||'?')[0]||'?').toUpperCase();return a};
+function profEdit(){return new Promise(res=>{const me=Object.assign({name:'',bio:'',av:''},lsg('strip-me',{})),ov=E('div','onov'),cd=E('div','oncd','<h3>Your profile</h3>'),ph=E('input'),n=E('input'),b=E('textarea'),w=E('div','wb'),ok=E('button','txt pri','Save'),no=E('button','txt','Cancel'),er=E('p','hn');let av=me.av,a=avEl(me,84);ph.type='file';ph.accept='image/*';ph.hidden=1;a.onclick=()=>ph.click();a.title='Tap to change photo';
+ ph.onchange=async()=>{try{av=await avatar(ph.files[0]);a.replaceWith(a=avEl({name:n.value,av},84));a.onclick=()=>ph.click()}catch(e){er.textContent='Could not read that image.'}};
+ n.placeholder='Name readers see';n.maxLength=30;n.value=me.name;b.placeholder='A short bio (optional)';b.maxLength=160;b.rows=3;b.value=me.bio;[n,b].forEach(x=>x.style.cssText='width:100%;box-sizing:border-box;font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--ui);color:var(--ink)');
+ const done=v=>{ov.remove();res(v)};no.onclick=()=>done(0);ok.onclick=async()=>{const nm=n.value.trim().slice(0,30);if(!nm){er.textContent='Pick a name first.';return}const p={name:nm,bio:b.value.trim().slice(0,160),av};lss('strip-me',p);if(ON.user()){ok.disabled=1;try{await ON.saveMe(p);await ONL.load(1)}catch(e){toast('Saved here. Online profile will update on your next post.')}}done(1)};
+ w.append(ok,no);cd.append(a,ph,n,b,er,w);ov.append(cd);document.body.append(ov)})}
+async function profView(uid){const ov=E('div','onov'),cd=E('div','oncd'),x=E('button','txt','Close');x.onclick=()=>ov.remove();ov.onclick=e=>{if(e.target===ov)ov.remove()};cd.textContent='Loading…';ov.append(cd);document.body.append(ov);
+ try{const p=await ON.profile(uid);cd.textContent='';const h=E('h3');h.textContent=p.name||'Creator';cd.append(avEl(p,84),h);if(p.bio){const t=E('p','hn');t.textContent=p.bio;cd.append(t)}
+  const l=E('div','hl');l.style.cssText='width:100%;max-height:40vh;overflow:auto';(p.stories||[]).forEach(o=>{const r=E('div','wr');r.innerHTML='<span></span><em></em>';r.firstChild.textContent=o.name||'Untitled';r.lastChild.textContent=(o.chapters||[]).filter(c=>c.pages>0).length+' ch';r.onclick=()=>{ov.remove();HV='discover';DSID='o'+o.id;renderHome()};l.append(r)});
+  if(!(p.stories||[]).length){const t=E('p','hn');t.textContent='No stories yet.';cd.append(t)}else cd.append(l);cd.append(x)}catch(e){cd.textContent=e.message||'Could not load this profile.';cd.append(x)}}
 function onlineBox(st){const d=E('section','wsec onl','<h3>Online</h3>'),p=E('p','hn'),w=E('div','wb'),u=ON.user();d.append(p,w);
  const btn=(t,f,pri)=>{const b=E('button','txt'+(pri?' pri':''),t);b.onclick=async()=>{b.disabled=1;try{await f()}catch(e){if(e.message!=='cancelled')toast(e.message||'Something went wrong.')}b.disabled=0;renderHome()};w.append(b)};
  if(!onCfg()){p.textContent='Anyone can read online stories without an account. Posting is not available right now.'}
  else if(!u){p.textContent='Sign in with Google to post this story. Readers never need an account.';btn('Sign in with Google',ON.signIn,1)}
- else{const on=ONL.list.some(o=>o.id===st.id&&o.authorUid===u.uid);p.textContent='Posting as '+(lsg('strip-pen','')||u.name)+'. '+(on?'This story is online.':'This story is only on this device.');
-  btn(on?'Update online':'Post online',async()=>{if(!lsg('strip-pen','')&&!await penName())return;if(!st.genre||!st.syn){if(!await pubDetails(st,'Continue'))return;await DB.put('s',st)}if(!await ask('Post “'+st.name+'” online? Anyone can read it, and your pen name will show as the author.',null,'Post'))return;await ON.post(st,toast);await ONL.load(1);toast('Posted. Everyone can read it in Discover.')},1);
+ else{const on=ONL.list.some(o=>o.id===st.id&&o.authorUid===u.uid);p.textContent='Posting as '+(lsg('strip-me',{}).name||'(set a profile)')+'. '+(on?'This story is online.':'This story is only on this device.');
+  btn(on?'Update online':'Post online',async()=>{if(!lsg('strip-me',{}).name&&!await profEdit())return;if(!st.genre||!st.syn){if(!await pubDetails(st,'Continue'))return;await DB.put('s',st)}if(!await ask('Post “'+st.name+'” online? Anyone can read it, and your profile name will show as the author.',null,'Post'))return;await ON.post(st,toast);await ONL.load(1);toast('Posted. Everyone can read it in Discover.')},1);
   if(on)btn('Take offline',async()=>{if(await ask('Remove “'+st.name+'” from online? Your copy on this device stays.',null,'Remove')){await ON.unpost(st.id);await ONL.load(1);toast('Removed from online.')}});
-  btn('Pen name',penName);btn('Sign out',async()=>{ON.signOut()})}
+  btn('Edit profile',profEdit);btn('My profile',()=>profView(u.uid));btn('Sign out',async()=>{ON.signOut()})}
  return d}
 /* ---------- ads: a pop-up with a clear Ad label (shows an example until your service has real ads) ---------- */
 const ADS={list:null,async get(){return[]},
