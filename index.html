@@ -277,7 +277,7 @@ button[data-v=discover].hpop svg{animation:hspin .5s cubic-bezier(.2,1.2,.3,1)}b
 .tcd .tdots{margin:2px 0}.tcd .wb{width:100%;flex-wrap:nowrap;align-items:center}.tcd .tsk{margin-right:auto}
 .tar{position:absolute;z-index:-1;width:14px;height:14px;border-radius:3px;background:var(--bg);transform:rotate(45deg)}
 @media(prefers-reduced-motion:reduce){.trg{animation:none}.tcd{transition:none}}
-</style></head><body>
+</style><style>.vt{display:flex;align-items:center;gap:6px;margin-top:10px}.vt button{border:1px solid var(--line);background:var(--ui);color:var(--mute);border-radius:999px;padding:6px 12px;font:700 13px system-ui;cursor:pointer}.vt button.on{background:var(--acc);color:#fff;border-color:var(--acc)}.vt b{min-width:24px;text-align:center;font:800 14px system-ui}.vt.sm{margin:0}.vt.sm button{padding:3px 9px;font-size:11px}.cmi{padding:10px 0;border-top:1px solid var(--line)}.cmh{display:flex;gap:8px;align-items:baseline}.cmh em{font-size:11px;color:var(--mute);font-style:normal}.cmi p{margin:4px 0 6px;font-size:14px;white-space:pre-wrap;word-break:break-word}.cmf{display:flex;gap:8px;align-items:center}</style></head><body>
 <div id="view"><div id="stage"><div id="guide"></div><svg id='sl'><path/></svg><div id='symax'></div><div id='gdov'></div><div id='xfov'></div></div><div id="rg"><i></i></div></div>
 <nav id="tools" class="glass">
 <button class='ib' id='bHome' title='Home: stories and chapters'><svg viewBox='0 0 24 24'><path d='M4 11 12 4l8 7'/><path d='M6 10v10h12V10'/><path d='M10 20v-5h4v5'/></svg></button><i class='sep'></i><button class="ib on" id="bBrush" title="Brushes (B)"><svg viewBox="0 0 24 24"><path d="M4 20l1-4L17 4l3 3L8 19z"/><path d="M14 7l3 3"/></svg></button>
@@ -985,7 +985,7 @@ function mockPages(s,ep){const R=rnd(s.id+ep),W=800,H=2600,A=R()<.5,rs=A?[[30,40
 async function userPages(st,cid){const rec=await DB.get('p',cid),out=[];if(!rec||!rec.pages)return out;for(const d of rec.pages){const w=d.W||800;out.push({W:w,H:d.H,layers:await mkLayers(d,w,d.H),panels:d.panels||[],texts:d.texts||[]})}return out}
 async function readStory(s,i){const e=s.eps[i];if(!e){toast('No episodes yet');return}toast('Loading\u2026');const pg=s.m?mockPages(s,i):s.online?await ON.pages(s,e.id).catch(x=>{toast(x.message);return[]}):await userPages(s.src,e.id);if(!pg.length){toast('Nothing drawn in this episode yet');return}LB.h=[{k:s.key,e:i,t:Date.now()},...LB.h.filter(x=>x.k!==s.key)].slice(0,30);lss('strip-lib',LB);RV.ctx={s,i};rvOpen(pg)}
 const mkAll=u=>[...MK.map(m=>({key:m[0],id:m[0],name:m[1],author:m[2],genre:m[3],syn:m[4],rating:m[5],views:m[6],status:m[7],days:m[8],m:1,eps:TT[m[3]].map(n=>({name:n,pages:5})),get thumb(){return mockCover(this)}})),...ONL.list.map(o=>({key:'o'+o.id,id:o.id,online:1,name:o.name||'Untitled',author:o.author||'Creator',authorUid:o.authorUid,genre:GEN.includes(o.genre)?o.genre:'Slice of Life',syn:o.syn||'',rating:0,views:0,status:'Ongoing',days:Math.floor((Date.now()-(o.updated||0))/864e5),m:0,thumb:o.thumb,eps:(o.chapters||[]).filter(c=>c.pages>0)})),...u.filter(s=>s.pub&&!ONL.list.some(o=>o.id===s.id)).map(s=>({key:s.id,id:s.id,name:s.name,author:'You',genre:s.genre||'Slice of Life',syn:s.syn||'A story drawn in Strip.',rating:0,views:0,status:'Ongoing',days:Math.floor((Date.now()-s.updated)/864e5),m:0,thumb:s.thumb,eps:s.chapters.filter(c=>c.pages>0),src:s}))],
-card=(s,sub,fn)=>{const c=E('button','wc'),v=covEl(s,'wcv',s.genre);v.append(E('u','rt',s.m?`\u2605 ${s.rating}`:s.online&&s.authorUid!==(ON.user()||{}).uid?'ONLINE':'YOURS'));c.append(v,E('span','',esc(s.name)),E('em','',sub||esc(s.author)+' \u00b7 '+chN(s.eps.length)));if(!sub&&s.m)c.append(E('em','',fv(s.views)+' views'));c.onclick=fn||(()=>{DSID=s.key;renderHome()});return c};
+card=(s,sub,fn)=>{const c=E('button','wc'),v=covEl(s,'wcv',s.genre);v.append(E('u','rt',s.m?`\u2605 ${s.rating}`:s.online&&s.authorUid!==(ON.user()||{}).uid?'ONLINE':'YOURS'));c.append(v,E('span','',esc(s.name)),E('em','',sub||esc(s.author)+' \u00b7 '+chN(s.eps.length)+(s.online&&VT.m['s_'+s.id]?' \u00b7 \u25b2 '+(VT.m['s_'+s.id].up-VT.m['s_'+s.id].dn):'')));if(!sub&&s.m)c.append(E('em','',fv(s.views)+' views'));c.onclick=fn||(()=>{DSID=s.key;renderHome()});return c};
 async function pubDetails(st,ok){const sel=$('#dS'),old=sel.innerHTML;sel.innerHTML=GEN.map(g=>`<option>${g}</option>`).join('');sel.value=st.genre||'Slice of Life';const syn=await ask('Synopsis and genre',st.syn||'A new story drawn in Strip.',ok,1),gv=sel.value;sel.innerHTML=old;if(!syn)return 0;st.syn=syn;st.genre=gv;return 1}
 const pubSw=s=>{const l=E('label','wsw','<input type="checkbox"><i></i><span>Publish to Discover</span>'),i=l.querySelector('input');i.checked=!!s.pub;l.onclick=e=>e.stopPropagation();
  i.onchange=async()=>{if(i.checked){if((!s.genre||!s.syn)&&!await pubDetails(s,'Publish')){i.checked=false;return}s.pub=1;toast(s.chapters.some(c=>c.pages>0)?'Published to Discover':'Published. Draw a chapter so readers can open it.')}else{s.pub=0;toast('Removed from Discover')}await DB.put('s',s);renderHome()};return l};
@@ -1006,28 +1006,41 @@ function vDetail(B,s){const bm=LB.b.includes(s.key),hd=E('div','wd'),wi=E('div',
  if(s.online&&s.authorUid){const em=wi.querySelector('em');em.innerHTML=em.innerHTML.replace(esc(s.author),'<a class="pa">'+esc(s.author)+'</a>');const pa=em.querySelector('.pa');if(pa)pa.onclick=()=>profView(s.authorUid)}
  rd.onclick=()=>readStory(s,0);bk.onclick=()=>{LB.b=bm?LB.b.filter(k=>k!==s.key):[s.key,...LB.b];lss('strip-lib',LB);renderHome()};wb.append(rd,bk);
  if(!s.m&&s.src){const ed=E('button','txt','Edit in Studio');ed.onclick=()=>{HV='create';HS=s.id;DSID=null;renderHome()};wb.append(ed)}
- wi.append(wb);hd.append(covEl(s),wi);B.append(hd,E('div','wt',`<span>Episodes (${s.eps.length})</span>`));
- const ls=E('div','hl');s.eps.forEach((e,i)=>{const r=E('div','wr',`<b>${i+1}</b><span>${esc(e.name)}</span><em>${e.pages} ${s.m?'panels':'pages'}</em>`);r.onclick=()=>readStory(s,i);ls.append(r);const ad=window.stripAd&&stripAd(i,s.eps.length);if(ad)ls.append(ad)});B.append(ls)}
+ wi.append(wb);if(s.online)wi.append(voteEl('s_'+s.id));hd.append(covEl(s),wi);B.append(hd,E('div','wt',`<span>Episodes (${s.eps.length})</span>`));
+ const ls=E('div','hl');s.eps.forEach((e,i)=>{const r=E('div','wr',`<b>${i+1}</b><span>${esc(e.name)}</span><em>${e.pages} ${s.m?'panels':'pages'}</em>`);r.onclick=()=>readStory(s,i);ls.append(r);const ad=window.stripAd&&stripAd(i,s.eps.length);if(ad)ls.append(ad)});B.append(ls);if(s.online)B.append(socialBox(s))}
 function vCreate(B,A,user){const imp=E('button','txt','Import backup');imp.onclick=()=>$('#hF').click();A.append(imp);
  const G=E('div','wg'),nw=E('button','wc'),pl=E('div','wn','<b>+</b>New Story');nw.append(pl,E('span','','New Story'));nw.onclick=newStory;G.append(nw);
  user.forEach(s=>{const c=E('div','wc'),cv=covEl(s,'wcv',s.pub?'PUBLISHED':''),last=s.chapters[s.chapters.length-1],wb=E('div','wb'),go=E('button','txt pri',last?'Open in Canvas':'+ New Chapter');cv.style.cursor='pointer';cv.onclick=()=>{HS=s.id;renderHome()};
   go.onclick=()=>last?openChapter(s.id,last.id):addCh(s);wb.append(go);if(last){const ac=E('button','txt','+ Chapter');ac.onclick=()=>addCh(s);wb.append(ac)}
   c.append(cv,E('span','',esc(s.name)),E('em','',`${chN(s.chapters.length)} \u00b7 ${when(s.updated)}`),wb,pubSw(s));G.append(c)});
  B.append(E('p','hn','Your stories live in this browser. Turn on Publish to show one in Discover.'),G)}
-function thumbEdit(st){return new Promise(res=>{const ov=E('div','onov'),cd=E('div','oncd','<h3>Story thumbnail</h3>'),cv=E('canvas'),f=E('input'),sl=E('input'),row=E('div'),up=E('button','txt pri','Choose image'),ok=E('button','txt','Save'),au=E('button','txt','Use my drawing'),no=E('button','txt','Cancel'),hn=E('p','hn','Pick a picture, drag to move it, slide to zoom.'),er=E('p','hn');
- const Wd=300,Hd=400;cv.width=Wd;cv.height=Hd;cv.style.cssText='width:150px;height:200px;border-radius:12px;touch-action:none;background:#fff;box-shadow:var(--sh)';
- f.type='file';f.accept='image/*';f.hidden=1;sl.type='range';sl.min=100;sl.max=300;sl.value=100;sl.style.width='100%';sl.hidden=1;row.style.cssText='display:flex;gap:8px;flex-wrap:wrap;justify-content:center';
- let im=null,z=1,ox=0,oy=0,pick=0;
- const draw=()=>{const x=cv.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,Wd,Hd);if(!im)return;const b=Math.max(Wd/im.width,Hd/im.height)*z,w=im.width*b,h=im.height*b;ox=cl(ox,-(w-Wd)/2,(w-Wd)/2);oy=cl(oy,-(h-Hd)/2,(h-Hd)/2);x.drawImage(im,(Wd-w)/2+ox,(Hd-h)/2+oy,w,h)};
+function thumbEdit(st){return new Promise(res=>{const ov=E('div','onov'),cd=E('div','oncd','<h3>Story thumbnail</h3>'),cv=E('canvas'),dc=E('canvas'),f=E('input'),sl=E('input'),pc=E('input'),ps=E('input'),bg=E('input'),
+ t1=E('div'),t2=E('div'),row=E('div'),up=E('button','txt','Photo'),mv=E('button','txt','Move'),pn=E('button','txt pri','Pen'),ea=E('button','txt','Eraser'),un=E('button','txt','Undo'),cr=E('button','txt','Clear'),ok=E('button','txt pri','Save'),au=E('button','txt','Use my drawing'),no=E('button','txt','Cancel'),hn=E('p','hn'),er=E('p','hn');
+ const Wd=300,Hd=400;cv.width=dc.width=Wd;cv.height=dc.height=Hd;cv.style.cssText='width:225px;height:300px;border-radius:12px;touch-action:none;background:#fff;box-shadow:var(--sh)';
+ f.type='file';f.accept='image/*';f.hidden=1;sl.type='range';sl.min=100;sl.max=300;sl.value=100;sl.style.width='100%';sl.hidden=1;
+ pc.type='color';pc.value='#222222';ps.type='range';ps.min=2;ps.max=48;ps.value=10;ps.style.width='80px';bg.type='color';bg.value='#ffffff';
+ [t1,t2,row].forEach(x=>x.style.cssText='display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center');
+ const lb=(t,i)=>{const l=E('label','',t);l.style.cssText='display:flex;align-items:center;gap:4px;font-size:12px;color:var(--mute)';l.append(i);return l};
+ let im=null,z=1,ox=0,oy=0,pick=0,m='pen',dr=null,lp=null;const hist=[];
+ const draw=()=>{const x=cv.getContext('2d');x.fillStyle=bg.value;x.fillRect(0,0,Wd,Hd);if(im){const b=Math.max(Wd/im.width,Hd/im.height)*z,w=im.width*b,h=im.height*b;ox=cl(ox,-(w-Wd)/2,(w-Wd)/2);oy=cl(oy,-(h-Hd)/2,(h-Hd)/2);x.drawImage(im,(Wd-w)/2+ox,(Hd-h)/2+oy,w,h)}x.drawImage(dc,0,0)};
+ const setM=k=>{m=k;mv.classList.toggle('pri',k==='move');pn.classList.toggle('pri',k==='pen');ea.classList.toggle('pri',k==='eraser');sl.hidden=!(k==='move'&&im);hn.textContent=k==='move'?(im?'Drag the photo to move it, slide to zoom.':'Add a photo first, then move it here.'):'Draw on the thumbnail with your finger.'};
  if(st.thumb){const i=new Image();i.onload=()=>{if(!pick){im=i;draw()}};i.src=st.thumb}
- f.onchange=async()=>{const fl=f.files[0];f.value='';if(!fl)return;try{im=await createImageBitmap(fl);pick=1;z=1;ox=oy=0;sl.value=100;sl.hidden=0;er.textContent='';draw()}catch(e){er.textContent='Could not read that image.'}};
- sl.oninput=()=>{z=sl.value/100;draw()};
- let dr=null;cv.onpointerdown=e=>{if(!im)return;dr={x:e.clientX,y:e.clientY,ox,oy};cv.setPointerCapture(e.pointerId)};cv.onpointermove=e=>{if(!dr)return;ox=dr.ox+(e.clientX-dr.x)*2;oy=dr.oy+(e.clientY-dr.y)*2;draw()};cv.onpointerup=cv.onpointercancel=()=>dr=null;
- up.onclick=()=>f.click();
+ f.onchange=async()=>{const fl=f.files[0];f.value='';if(!fl)return;try{im=await createImageBitmap(fl);pick=1;z=1;ox=oy=0;sl.value=100;er.textContent='';setM('move');draw()}catch(e){er.textContent='Could not read that image.'}};
+ sl.oninput=()=>{z=sl.value/100;draw()};bg.oninput=()=>{pick=1;draw()};
+ const pt=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*Wd/r.width,(e.clientY-r.top)*Hd/r.height]};
+ const stroke=(a,b)=>{const d=dc.getContext('2d');d.globalCompositeOperation=m==='eraser'?'destination-out':'source-over';d.strokeStyle=pc.value;d.lineWidth=+ps.value;d.lineCap=d.lineJoin='round';d.beginPath();d.moveTo(a[0],a[1]);d.lineTo(b[0]+.01,b[1]);d.stroke();draw()};
+ const snap=()=>{hist.push(dc.getContext('2d').getImageData(0,0,Wd,Hd));if(hist.length>15)hist.shift()};
+ cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);if(m==='move'){if(im)dr={x:e.clientX,y:e.clientY,ox,oy};return}snap();pick=1;er.textContent='';lp=pt(e);stroke(lp,lp)};
+ cv.onpointermove=e=>{if(dr){const k=Wd/cv.getBoundingClientRect().width;ox=dr.ox+(e.clientX-dr.x)*k;oy=dr.oy+(e.clientY-dr.y)*k;draw();return}if(lp){const q=pt(e);stroke(lp,q);lp=q}};
+ cv.onpointerup=cv.onpointercancel=()=>{dr=null;lp=null};
+ up.onclick=()=>f.click();mv.onclick=()=>setM('move');pn.onclick=()=>setM('pen');ea.onclick=()=>setM('eraser');
+ un.onclick=()=>{const h=hist.pop();if(h){dc.getContext('2d').putImageData(h,0,0);draw()}};
+ cr.onclick=()=>{snap();dc.getContext('2d').clearRect(0,0,Wd,Hd);draw()};
  const done=v=>{ov.remove();res(v)};no.onclick=()=>done(0);ov.onclick=e=>{if(e.target===ov)done(0)};
- ok.onclick=async()=>{if(!pick){er.textContent='Choose an image first.';return}st.thumb=cv.toDataURL('image/jpeg',.82);st.cthumb=1;await DB.put('s',st);toast('Thumbnail saved. Tap Update online to refresh it for readers.');done(1)};
+ ok.onclick=async()=>{if(!pick){er.textContent='Draw something or add a photo first.';return}st.thumb=cv.toDataURL('image/jpeg',.82);st.cthumb=1;await DB.put('s',st);toast('Thumbnail saved. Tap Update online to refresh it for readers.');done(1)};
  au.hidden=!st.cthumb;au.onclick=async()=>{const was=st.cthumb;st.cthumb=0;if(CH&&CH.sid===st.id&&PGS.length)st.thumb=coverImg();else if(was)st.thumb='';await DB.put('s',st);toast(st.thumb?'Using your drawing':'Thumbnail will update next time you draw in this story');done(1)};
- row.append(up,ok,au,no);cd.append(cv,sl,hn,er,row,f);ov.append(cd);document.body.append(ov);draw()})}
+ t1.append(pn,ea,mv,up);t2.append(lb('Colour',pc),lb('Size',ps),lb('Back',bg),un,cr);row.append(ok,au,no);
+ cd.append(cv,sl,hn,t1,t2,er,row,f);ov.append(cd);document.body.append(ov);setM('pen');draw()})}
 function vManage(B,A,st){const rn=E('button','txt','Rename'),dl=E('button','txt','Delete story'),ed=E('button','txt','Details');
  rn.onclick=async()=>{const nm=await ask('Rename story',st.name,'Save');if(nm){st.name=nm;await DB.put('s',st);renderHome()}};
  dl.onclick=async()=>{if(await ask('Delete \u201c'+st.name+'\u201d and all its chapters? This cannot be undone, so export a backup first.',null,'Delete')){for(const c of st.chapters)await DB.del('p',c.id);await DB.del('s',st.id);if(CH&&CH.sid===st.id)CH=null;HS=null;renderHome()}};
@@ -1088,8 +1101,22 @@ const ON=(()=>{
  async function pages(s,cid){const m=await api('/stories/'+s.id+'/ch/'+cid,{t:15000}),pj=JSON.parse(m.j),out=[];
   for(const p of pj){const arr=[];for(let i=0;i<p.layers.length;i+=4)arr.push(...await Promise.all(p.layers.slice(i,i+4).map(async o=>{if(!o.k)return{...o,png:null};const r=await api('/stories/'+s.id+'/img/'+o.k,{t:30000});return{...o,png:await(await fetch(r.d)).blob()}})));
    out.push({W:p.W,H:p.H,layers:await mkLayers({layers:arr},p.W,p.H),panels:p.panels||[],texts:p.texts||[]})}return out}
- return{user:()=>AU,signIn,signOut:()=>{AU=null;keep()},post,unpost,list,pages,ads,saveMe:p=>api('/me',{method:'PUT',body:p},1),profile:uid=>api('/profiles/'+encodeURIComponent(uid),{t:12000})}})();
-const ONL={list:[],at:0,async load(f){if(!onCfg()||(!f&&Date.now()-this.at<60000))return;this.at=Date.now();try{const l=await ON.list(),k=a=>a.map(x=>x.id+':'+x.updated).join();if(k(l)!==k(this.list)){this.list=l;if($('#home').classList.contains('on'))renderHome()}}catch(e){}}};
+ return{soc:(p,o,a)=>api(p,o,a||!!(AU&&Date.now()<AU.exp-30000)),user:()=>AU,signIn,signOut:()=>{AU=null;keep()},post,unpost,list,pages,ads,saveMe:p=>api('/me',{method:'PUT',body:p},1),profile:uid=>api('/profiles/'+encodeURIComponent(uid),{t:12000})}})();
+const VT={m:{},async load(){if(!onCfg())return;try{Object.assign(this.m,await ON.soc('/social/tally',{t:12000}))}catch(e){}}};
+function voteEl(t,sm,story){const d=E('div','vt'+(sm?' sm':'')),u=E('button','','\u25b2'),n=E('b'),w=E('button','','\u25bc');u.setAttribute('aria-label','Upvote');w.setAttribute('aria-label','Downvote');d.append(u,n,w);
+ const g=()=>VT.m[t]||(VT.m[t]={up:0,dn:0,mine:0}),paint=()=>{const x=g();n.textContent=x.up-x.dn;u.classList.toggle('on',x.mine>0);w.classList.toggle('on',x.mine<0)};paint();
+ const cast=async v=>{const x=g(),o={...x};if(x.mine===v)v=0;if(x.mine>0)x.up--;if(x.mine<0)x.dn--;if(v>0)x.up++;if(v<0)x.dn++;x.mine=v;paint();try{Object.assign(x,await ON.soc('/social/vote',{method:'PUT',body:{id:t,v,story},t:12000},1));paint()}catch(e){Object.assign(x,o);paint();if(e.message!=='cancelled')toast(e.message||'Could not save your vote.')}};
+ u.onclick=()=>cast(1);w.onclick=()=>cast(-1);return d}
+function socialBox(s){const sec=E('section','wsec cm','<h3>Comments</h3>'),ta=E('textarea'),pb=E('button','txt pri','Post'),lst=E('div','cml'),row=E('div','wb'),base='/social/comments/'+encodeURIComponent(s.id);
+ ta.placeholder='Add a comment\u2026';ta.maxLength=500;ta.rows=2;ta.style.cssText='width:100%;box-sizing:border-box;font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--ui);color:var(--ink);margin-bottom:8px';
+ const render=cs=>{lst.textContent='';if(!cs.length){lst.append(E('p','hn','No comments yet. Be the first.'));return}
+  cs.forEach(c=>{const r=E('div','cmi'),h=E('div','cmh'),nm=E('b'),tm=E('em'),tx=E('p'),f=E('div','cmf');nm.textContent=c.name||'Reader';tm.textContent=when(c.t);tx.textContent=c.text;VT.m['c_'+c.id]={up:c.up,dn:c.dn,mine:c.mine};f.append(voteEl('c_'+c.id,1,s.id));
+   if((ON.user()||{}).uid===c.uid){const d=E('button','txt','Delete');d.onclick=async()=>{if(!await ask('Delete this comment?',null,'Delete'))return;try{await ON.soc(base+'/'+c.id,{method:'DELETE'},1);load()}catch(e){toast(e.message||'Could not delete.')}};f.append(d)}
+   h.append(nm,tm);r.append(h,tx,f);lst.append(r)})};
+ const load=async()=>{try{render((await ON.soc(base,{t:12000})).comments||[])}catch(e){lst.textContent='';lst.append(E('p','hn','Comments are not available right now.'))}};
+ pb.onclick=async()=>{const tx=ta.value.trim();if(!tx)return;pb.disabled=1;try{if(!lsg('strip-me',{}).name&&!await profEdit()){pb.disabled=0;return}await ON.soc(base,{method:'POST',body:{text:tx,name:lsg('strip-me',{}).name||''},t:15000},1);ta.value='';await load()}catch(e){if(e.message!=='cancelled')toast(e.message||'Could not post your comment.')}pb.disabled=0};
+ row.append(pb);sec.append(ta,row,lst);load();return sec}
+const ONL={list:[],at:0,async load(f){if(!onCfg()||(!f&&Date.now()-this.at<60000))return;this.at=Date.now();try{const l=await ON.list(),k=a=>a.map(x=>x.id+':'+x.updated).join();await VT.load();if(k(l)!==k(this.list)){this.list=l;if($('#home').classList.contains('on'))renderHome()}}catch(e){}}};
 const penName=()=>profEdit();
 async function avatar(f){const bm=await createImageBitmap(f),c=E('canvas'),z=256,m=Math.min(bm.width,bm.height);c.width=c.height=z;c.getContext('2d').drawImage(bm,(bm.width-m)/2,(bm.height-m)/2,m,m,0,0,z,z);let d=c.toDataURL('image/webp',.85);if(d.indexOf('image/webp')<0)d=c.toDataURL('image/jpeg',.85);return d}
 const avEl=(p,z)=>{const a=E('div','pav');a.style.cssText='width:'+z+'px;height:'+z+'px;font-size:'+z*.42+'px';if(p.av)a.style.backgroundImage='url('+p.av+')';else if(p.name&&p.name.trim())a.textContent=p.name.trim()[0].toUpperCase();else{a.innerHTML='<svg viewBox="0 0 24 24" style="width:'+z*.58+'px;height:'+z*.58+'px;stroke-width:2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>'}return a};
