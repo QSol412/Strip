@@ -65,9 +65,22 @@ async function scan(R, prefix, me) {
 
 // ---- votes + comments (/api/social/*) -- handled here so it works even if the
 // separate functions/api/social/ file is missing or not picked up by Pages.
+// Number of reports per comment in one thread (one report per signed-in user).
+async function reports(R, story) {
+  const pre = 'social/r/' + story + '/', out = {}; let cur, n = 0;
+  do {
+    const l = await R.list({ prefix: pre, cursor: cur });
+    for (const o of l.objects) { const id = o.key.slice(pre.length).split('/')[0]; out[id] = (out[id] || 0) + 1; }
+    cur = l.truncated ? l.cursor : null;
+  } while (cur && ++n < 20);
+  return out;
+}
+const HIDE_AT = 3;   // reports before a comment is hidden from everyone but its author and the admin
+
 async function social({ request, env, m, path, me, R }) {
   const needMe = () => J({ error: 'Please sign in again.' }, 401);
   const none = { up: 0, dn: 0, mine: 0 };
+  const isAdmin = !!me && String(env.ADMIN_UID || '').split(',').map(x => x.trim()).filter(Boolean).includes(me);
 
   if (m === 'GET' && path[0] === 'tally') return J(await scan(R, 'social/v/', me));
 
@@ -88,8 +101,19 @@ async function social({ request, env, m, path, me, R }) {
     const story = path[1], ck = 'social/c/' + story + '.json';
     const load = async () => { const o = await R.get(ck); try { return o ? await o.json() : []; } catch (e) { return []; } };
     if (m === 'GET' && path.length === 2) {
-      const all = await load(), votes = await scan(R, 'social/cv/' + story + '/', me);
-      return J({ comments: all.slice(-200).reverse().map(c => ({ ...c, ...(votes[c.id] || none) })) });
+      const all = await load(), votes = await scan(R, 'social/cv/' + story + '/', me), rc = await reports(R, story);
+      return J({ admin: isAdmin ? 1 : 0, comments: all.slice(-200).reverse().map(c => {
+        const n = rc[c.id] || 0, hide = !isAdmin && c.uid !== me && n >= HIDE_AT;
+        return { ...c, ...(votes[c.id] || none), ...(isAdmin ? { rc: n } : {}), ...(hide ? { text: '', hidden: 1 } : {}) };
+      }) });
+    }
+    if (m === 'POST' && path.length === 4 && CID.test(path[2]) && path[3] === 'report') {
+      if (!me) return needMe();
+      const c = (await load()).find(x => x.id === path[2]);
+      if (!c) return J({ error: 'That comment is gone.' }, 404);
+      if (c.uid === me) return J({ error: 'You cannot report your own comment.' }, 400);
+      await R.put('social/r/' + story + '/' + c.id + '/' + me, '');
+      return J({ ok: 1 });
     }
     if (m === 'POST' && path.length === 2) {
       if (!me) return needMe();
@@ -114,12 +138,14 @@ async function social({ request, env, m, path, me, R }) {
     if (m === 'DELETE' && path.length === 3 && CID.test(path[2])) {
       if (!me) return needMe();
       const all = await load();
-      if (!all.some(c => c.id === path[2] && c.uid === me)) return J({ error: 'You can only delete your own comments.' }, 403);
+      if (!all.some(c => c.id === path[2] && (c.uid === me || isAdmin))) return J({ error: 'You can only delete your own comments.' }, 403);
       const gone = new Set([path[2], ...all.filter(c => c.parent === path[2]).map(c => c.id)]);   // its replies go with it
       await R.put(ck, JSON.stringify(all.filter(c => !gone.has(c.id))), { httpMetadata: { contentType: 'application/json' } });
       for (const id of gone) {
-        const l = await R.list({ prefix: 'social/cv/' + story + '/' + id + '/' });
-        if (l.objects.length) await R.delete(l.objects.map(o => o.key));
+        for (const pre of ['social/cv/', 'social/r/']) {
+          const l = await R.list({ prefix: pre + story + '/' + id + '/' });
+          if (l.objects.length) await R.delete(l.objects.map(o => o.key));
+        }
       }
       return J({ ok: 1 });
     }
