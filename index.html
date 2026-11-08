@@ -237,7 +237,7 @@ input[type=range]:active::-webkit-slider-thumb{transform:scale(1.25)}
 button[data-v=discover].hpop svg{animation:hspin .5s cubic-bezier(.2,1.2,.3,1)}button[data-v=library].hpop svg{animation:htilt .5s ease}.hsb.hpop svg{animation:hsrch .45s ease}#bCreate.hpop svg{animation:hplus .45s cubic-bezier(.2,1.2,.3,1)}
 @media (prefers-reduced-motion:reduce){.hpop,.hpop svg{animation:none!important}}
 #bCreate:hover{transform:scale(1.06)}#bCreate:active{transform:scale(.92)}
-.onov{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.5);display:grid;place-items:center}.oncd{background:var(--bg);color:var(--ink);border-radius:20px;padding:20px;width:min(320px,calc(100vw - 40px));display:flex;flex-direction:column;align-items:center;gap:12px;box-shadow:var(--sh)}.oncd h3{margin:0;font:800 18px system-ui}.oncd p{margin:0;font-size:13px;color:var(--mute)}.onb{min-height:44px}.pav{border-radius:50%;background:var(--acc) center/cover;color:#fff;display:grid;place-items:center;font-weight:800;flex:none}.pa{color:var(--acc);text-decoration:underline;cursor:pointer}.onl .wb{flex-wrap:wrap}
+.onov{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.5);display:grid;place-items:center}.oncd{background:var(--bg);color:var(--ink);border-radius:20px;padding:20px;width:min(320px,calc(100vw - 40px));display:flex;flex-direction:column;align-items:center;gap:12px;box-shadow:var(--sh)}.oncd h3{margin:0;font:800 18px system-ui}.oncd p{margin:0;font-size:13px;color:var(--mute)}.onb{min-height:44px}.adslot{grid-column:1/-1;display:flex;justify-content:center;overflow:hidden;margin:4px 0}.pav{border-radius:50%;background:var(--acc) center/cover;color:#fff;display:grid;place-items:center;font-weight:800;flex:none}.pa{color:var(--acc);text-decoration:underline;cursor:pointer}.onl .wb{flex-wrap:wrap}
 :root{--rw:0px!important}
 #rf{left:auto;right:auto;bottom:auto;top:70px;width:220px;height:165px;padding:0;display:block;gap:0;border-radius:14px;background:transparent;border:0;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 10px 30px rgba(0,0,0,.38),0 0 0 2px rgba(255,255,255,.85);overflow:visible;touch-action:none}
 #rf.noimg{background:var(--ui)}#rf.off{display:none}
@@ -1000,7 +1000,7 @@ function vManage(B,A,st){const rn=E('button','txt','Rename'),dl=E('button','txt'
   k.onclick=e=>{e.stopPropagation();backup(st,c)};wa.append(a,k,d);r.append(mo,wa);ls.append(r)});B.append(ls);
  if(!st.chapters.length)B.append(E('p','hn','Add your first chapter, then tap it to start drawing.'))
 }
-async function renderHome(){const user=(await DB.all('s')).sort((a,b)=>b.updated-a.updated),all=mkAll(user),B=$('#hBody'),A=$('#hAct');if(HV==='create'&&HS&&!user.some(s=>s.id===HS))HS=null;const ST=HV==='create'&&HS&&user.find(s=>s.id===HS),DS=HV!=='create'&&DSID&&all.find(s=>s.key===DSID),vk=HV+'|'+(DS?DSID:'')+'|'+HS;if(!DS)DSID=null;
+async function renderHome(){if(window.STRIP_AD)STRIP_AD.n=0;const user=(await DB.all('s')).sort((a,b)=>b.updated-a.updated),all=mkAll(user),B=$('#hBody'),A=$('#hAct');if(HV==='create'&&HS&&!user.some(s=>s.id===HS))HS=null;const ST=HV==='create'&&HS&&user.find(s=>s.id===HS),DS=HV!=='create'&&DSID&&all.find(s=>s.key===DSID),vk=HV+'|'+(DS?DSID:'')+'|'+HS;if(!DS)DSID=null;
  let tr=0;const RMo=matchMedia('(prefers-reduced-motion:reduce)').matches;
  if(renderHome.vk!==vk){const rk=DS?3:HV==='create'?(ST?4:2):HV==='library'?1:0,od=renderHome.rk==null?0:rk-renderHome.rk;tr=od?(od>0?1:-1):0;renderHome.rk=rk;renderHome.vk=vk;
   if(tr&&!RMo&&!renderHome.fp&&B.firstChild&&B.animate)await B.animate([{opacity:1,transform:'none'},{opacity:0,transform:'translateX('+(-tr*38)+'px) scale(.98)'}],{duration:140,easing:'ease-in'}).finished.catch(()=>0);
@@ -1530,7 +1530,11 @@ document.querySelectorAll('button[title]:not([aria-label])').forEach(b=>b.setAtt
  $('#cwp').onclick=()=>{tgt=tgt>=2?2:0;cwSync()};$('#cws').onclick=()=>{tgt=tgt>=2?3:1;cwSync()};cwSync()})();
 </script><script>
 
+/* in-feed ads: one slot after every STRIP_AD.every comics. Paste your Monetag Banner/Native zone script address into src (and its data-zone number into zone). Empty = no slots. */
+window.STRIP_AD={every:10,src:'',zone:'',pool:[],n:0};
+window.stripAd=(i,n,sec)=>{const A=window.STRIP_AD;if(!A.src||(!sec&&((i+1)%A.every||i+1>=n)))return null;let d=A.pool[A.n];if(!d){d=E('div','adslot');const t=document.createElement('script');t.async=true;t.src=A.src;if(A.zone)t.dataset.zone=A.zone;t.setAttribute('data-cfasync','false');d.append(t);A.pool[A.n]=d}A.n++;return d};
+if('serviceWorker'in navigator&&location.protocol==='https:')addEventListener('load',()=>setTimeout(()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}),1500));
 /* ad: loads only while the home screen is open, at most once per AD_GAP minutes per device */
-(()=>{const AD_GAP=20,K='strip-ad-at',h=document.getElementById('home');let on=0;const go=()=>{if(on||!h.classList.contains('on'))return;let t=0;try{t=+localStorage.getItem(K)||0}catch(_){}if(Date.now()-t<AD_GAP*6e4)return;on=1;try{localStorage.setItem(K,Date.now())}catch(_){}const s=document.createElement('script');s.dataset.zone='12215702';s.src='https://n6wxm.com/vignette.min.js';document.body.appendChild(s)};new MutationObserver(go).observe(h,{attributes:true,attributeFilter:['class']});go()})();
+(()=>{const AD_GAP=5,K='strip-ad-at',h=document.getElementById('home');let on=0;const go=()=>{if(on||!h.classList.contains('on'))return;let t=0;try{t=+localStorage.getItem(K)||0}catch(_){}if(Date.now()-t<AD_GAP*6e4)return;on=1;try{localStorage.setItem(K,Date.now())}catch(_){}const s=document.createElement('script');s.dataset.zone='12215702';s.src='https://n6wxm.com/vignette.min.js';document.body.appendChild(s)};new MutationObserver(go).observe(h,{attributes:true,attributeFilter:['class']});go()})();
 </script>
 </body></html>
