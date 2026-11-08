@@ -17,10 +17,23 @@ export async function onRequest({request:rq,env}){
   const p=new URL(rq.url).pathname.replace(/^\/api\/?/,'').split('/').filter(Boolean),m=rq.method,db=env.DB;
   if(p[0]==='config')return J({clientId:env.GOOGLE_CLIENT_ID||''});
   if(p[0]==='ads')return J([]);
-  if(p[0]!=='stories')return E('Not found',404);
+  if(!['stories','me','profiles'].includes(p[0]))return E('Not found',404);
   if(!db)return E('The online service is not set up yet.',503);
-  ready=ready||db.batch([db.prepare('CREATE TABLE IF NOT EXISTS stories(id TEXT PRIMARY KEY,uid TEXT,author TEXT,name TEXT,genre TEXT,syn TEXT,thumb TEXT,chapters TEXT,updated INTEGER)'),db.prepare('CREATE TABLE IF NOT EXISTS chunks(sid TEXT,kind TEXT,k TEXT,d TEXT,PRIMARY KEY(sid,kind,k))')]).catch(e=>{ready=0;throw e});
+  ready=ready||db.batch([db.prepare('CREATE TABLE IF NOT EXISTS stories(id TEXT PRIMARY KEY,uid TEXT,author TEXT,name TEXT,genre TEXT,syn TEXT,thumb TEXT,chapters TEXT,updated INTEGER)'),db.prepare('CREATE TABLE IF NOT EXISTS profiles(uid TEXT PRIMARY KEY,name TEXT,bio TEXT,av TEXT,updated INTEGER)'),db.prepare('CREATE TABLE IF NOT EXISTS chunks(sid TEXT,kind TEXT,k TEXT,d TEXT,PRIMARY KEY(sid,kind,k))')]).catch(e=>{ready=0;throw e});
   await ready;
+  if(p[0]==='profiles'){
+   if(!p[1]||m!=='GET')return E('Not found',404);
+   const pr=await db.prepare('SELECT name,bio,av FROM profiles WHERE uid=?').bind(p[1]).first(),
+    st=(await db.prepare('SELECT id,name,author,chapters FROM stories WHERE uid=? ORDER BY updated DESC LIMIT 50').bind(p[1]).all()).results;
+   if(!pr&&!st.length)return E('Profile not found.',404);
+   return J({name:pr?pr.name:st[0].author,bio:pr?pr.bio:'',av:pr?pr.av:'',stories:st.map(o=>({id:o.id,name:o.name,chapters:JSON.parse(o.chapters||'[]')}))})}
+  if(p[0]==='me'){
+   if(m!=='PUT')return E('Not found',404);
+   const u=await who(rq,env);if(!u)return E('Please sign in again.',401);
+   let b;try{b=await rq.json()}catch(e){return E('Bad request',400)}
+   const name=str(b.name,30).trim()||u.name,av=typeof b.av==='string'&&b.av.startsWith('data:image/')&&b.av.length<6e4?b.av:'';
+   await db.batch([db.prepare('INSERT INTO profiles(uid,name,bio,av,updated) VALUES(?,?,?,?,?) ON CONFLICT(uid) DO UPDATE SET name=excluded.name,bio=excluded.bio,av=excluded.av,updated=excluded.updated').bind(u.uid,name,str(b.bio,160).trim(),av,Date.now()),db.prepare('UPDATE stories SET author=? WHERE uid=?').bind(name,u.uid)]);
+   return J({ok:1})}
   const[,sid,kind,k]=p;
   if(!sid){if(m!=='GET')return E('Not found',404);
    const r=await db.prepare('SELECT id,uid,author,name,genre,syn,thumb,chapters,updated FROM stories ORDER BY updated DESC LIMIT 300').all();
