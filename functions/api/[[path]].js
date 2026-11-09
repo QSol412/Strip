@@ -19,6 +19,7 @@
 //   PUT/GET stories/:id/img/:key     -> {d}  one page layer image as a data: URL
 //   PUT    me                        -> save your profile {name,bio,av}
 //   GET    profiles/:uid             -> {name,bio,av,stories:[...]}
+//   GET    social/pulse?t=a,b        -> {ix,c,n}  change-check used for live updates
 //   GET    ads                       -> []
 
 const TE = new TextEncoder(), TD = new TextDecoder();
@@ -274,6 +275,14 @@ export async function onRequest({ request, env }) {
   let me = null, meEmail = '';
   if (bearer) { try { const v = await verifyGoogle(bearer, env); me = v.sub; meEmail = v.email; } catch (e) { me = null; } }
   const needMe = () => J({ error: 'Please sign in again.' }, 401);
+  // Live updates: tiny change-check the app polls. Returns only etags, so it is cheap.
+  //   GET /api/social/pulse?t=<storyId or e_chapterId>,...  ->  {ix, c:{thread:etag}, n, now}
+  if (m === 'GET' && path[0] === 'social' && path[1] === 'pulse' && path.length === 2) {
+    const th = String(url.searchParams.get('t') || '').split(',').filter(x => ID.test(x)).slice(0, 4);
+    const tag = async k => { try { const o = await R.head(k); return o ? (o.etag || String(+o.uploaded || 1)) : ''; } catch (e) { return ''; } };
+    const c = {}; for (const t of th) c[t] = await tag('social/c/' + t + '.json');
+    return J({ ix: await tag(IX), c, n: me ? await tag('social/n/' + me + '.json') : '', now: Date.now() });
+  }
   if (path[0] === 'social') return social({ request, env, m, path: path.slice(1), me, meEmail, R });
   const body = async () => { try { return await request.json(); } catch (e) { return null; } };
   const wipe = async id => {
