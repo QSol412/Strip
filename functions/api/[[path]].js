@@ -28,6 +28,8 @@ const ID = /^[\w-]{1,64}$/, KEY = /^[\w-]{1,80}$/;
 const cut = (v, n) => String(v == null ? '' : v).slice(0, n);
 const imgOk = (v, max) => typeof v === 'string' && v.length <= max && /^data:image\/(webp|png|jpeg|jpg);base64,/.test(v);
 const IX = 'online/index.json';
+const hx = v => /^#[0-9a-f]{6}$/i.test(String(v)) ? String(v) : '';
+const cleanTheme = t => !t || typeof t !== 'object' ? null : { bg: hx(t.bg), ink: hx(t.ink), acc: hx(t.acc), pn: hx(t.pn), f: ['serif', 'mono', 'round', 'hand'].includes(t.f) ? t.f : '', dim: Math.max(0, Math.min(80, +t.dim || 0)), img: t.img ? 1 : 0 };
 const MAX_STORY_NAME = 200, MAX_CHAPTER_NAME = 120;   // story / chapter titles (was 80)
 
 async function verifyGoogle(tok, env) {
@@ -326,7 +328,7 @@ export async function onRequest({ request, env }) {
       const chapters = (Array.isArray(b.chapters) ? b.chapters : []).slice(0, 200)
         .filter(c => c && ID.test(String(c.id || ''))).map(c => ({ id: String(c.id), name: cut(c.name, MAX_CHAPTER_NAME), pages: Math.max(0, Math.min(999, +c.pages || 0)) }));
       const genres = (Array.isArray(b.genres) ? b.genres : []).map(g => cut(g, 40)).filter(Boolean).slice(0, 3);
-      ix[id] = { id, name: cut(b.name, MAX_STORY_NAME), genre: genres[0] || cut(b.genre, 40), genres, syn: cut(b.syn, 600), thumb: imgOk(b.thumb, 300000) ? b.thumb : '', author: cut(b.author, 30), authorUid: me, updated: Date.now(), chapters };
+      ix[id] = { id, name: cut(b.name, MAX_STORY_NAME), genre: genres[0] || cut(b.genre, 40), genres, syn: cut(b.syn, 600), theme: cleanTheme(b.theme), thumb: imgOk(b.thumb, 300000) ? b.thumb : '', author: cut(b.author, 30), authorUid: me, updated: Date.now(), chapters };
       const had = new Set(((cur && cur.chapters) || []).filter(c => c.pages > 0).map(c => c.id));
       const fresh = chapters.filter(c => c.pages > 0 && !had.has(c.id));
       await writeIx(ix);
