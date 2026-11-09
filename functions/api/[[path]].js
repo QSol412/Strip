@@ -69,12 +69,16 @@ async function scan(R, prefix, me) {
 async function reports(R, story) {
   const pre = 'social/r/' + story + '/', out = {}; let cur, n = 0;
   do {
-    const l = await R.list({ prefix: pre, cursor: cur });
-    for (const o of l.objects) { const id = o.key.slice(pre.length).split('/')[0]; out[id] = (out[id] || 0) + 1; }
+    const l = await R.list({ prefix: pre, cursor: cur, include: ['customMetadata'] });
+    for (const o of l.objects) {
+      const id = o.key.slice(pre.length).split('/')[0], r = (o.customMetadata && o.customMetadata.r) || 'other';
+      const e = out[id] || (out[id] = { n: 0, why: {} }); e.n++; e.why[r] = (e.why[r] || 0) + 1;
+    }
     cur = l.truncated ? l.cursor : null;
   } while (cur && ++n < 20);
   return out;
 }
+const REASONS = ['spam', 'abuse', 'spoiler', 'other'];
 const HIDE_AT = 3;
 
 // ---- small JSON helpers + notifications (inbox = social/n/<uid>.json)
@@ -188,8 +192,8 @@ async function social({ request, env, m, path, me, meEmail, R }) {
     if (m === 'GET' && path.length === 2) {
       const all = await load(), votes = await scan(R, 'social/cv/' + story + '/', me), rc = await reports(R, story);
       return J({ role, comments: all.slice(-200).reverse().map(c => {
-        const n = rc[c.id] || 0, hide = !isStaff && c.uid !== me && n >= HIDE_AT;
-        return { ...c, ...(votes[c.id] || none), ...(isStaff ? { rc: n } : {}), ...(roleOf(c.uid) ? { staff: roleOf(c.uid) } : {}), ...(hide ? { text: '', hidden: 1 } : {}) };
+        const rr = rc[c.id] || { n: 0, why: {} }, n = rr.n, hide = !isStaff && c.uid !== me && n >= HIDE_AT;
+        return { ...c, ...(votes[c.id] || none), ...(isStaff ? { rc: n, rr: rr.why } : {}), ...(roleOf(c.uid) ? { staff: roleOf(c.uid) } : {}), ...(hide ? { text: '', hidden: 1 } : {}) };
       }) });
     }
     if (m === 'POST' && path.length === 4 && CID.test(path[2]) && path[3] === 'report') {
@@ -197,7 +201,15 @@ async function social({ request, env, m, path, me, meEmail, R }) {
       const c = (await load()).find(x => x.id === path[2]);
       if (!c) return J({ error: 'That comment is gone.' }, 404);
       if (c.uid === me) return J({ error: 'You cannot report your own comment.' }, 400);
-      await R.put('social/r/' + story + '/' + c.id + '/' + me, '');
+      let b = {}; try { b = await request.json(); } catch (e) {}
+      const reason = REASONS.includes(b.reason) ? b.reason : 'other';
+      await R.put('social/r/' + story + '/' + c.id + '/' + me, '', { customMetadata: { r: reason } });
+      // tell staff about the first report on a comment, and again when it gets hidden
+      const total = ((await reports(R, story))[c.id] || { n: 0 }).n;
+      if (total === 1 || total === HIDE_AT) {
+        const staff = [...new Set([...owners, ...Object.keys(roles)])].filter(u => u !== me);
+        for (const u of staff.slice(0, 50)) await pushNotif(R, u, { type: 'rp', story, text: String(c.text || '').slice(0, 60), reason, n: total, t: Date.now() });
+      }
       return J({ ok: 1 });
     }
     if (m === 'POST' && path.length === 2) {
