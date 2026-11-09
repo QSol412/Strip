@@ -1154,8 +1154,22 @@ const ON=(()=>{
    out.push({W:p.W,H:p.H,layers:await mkLayers({layers:arr},p.W,p.H),panels:p.panels||[],texts:p.texts||[]})}return out}
  return{soc:(p,o,a)=>api(p,o,a||!!(AU&&Date.now()<AU.exp-30000)),user:()=>AU,signIn,signOut:()=>{AU=null;keep()},post,unpost,list,pages,ads,saveMe:p=>api('/me',{method:'PUT',body:p},1),profile:uid=>api('/profiles/'+encodeURIComponent(uid),{t:12000})}})();
 const VW={},VSEEN=new Set();const VT={m:{},async load(){if(!onCfg())return;try{Object.assign(this.m,await ON.soc('/social/tally',{t:12000}))}catch(e){}try{Object.assign(VW,await ON.soc('/social/views',{t:12000}))}catch(e){}}};
+var LIVE=(()=>{const L={th:new Set(),vp:new Set(),ix:null,c:{},n:null,k:0,t:0,fail:0};
+ const busy=L.busy=()=>{const a=document.activeElement;return !!(a&&/^(TEXTAREA|INPUT)$/.test(a.tagName)&&a.closest&&a.closest('#home'))||[...document.querySelectorAll('#home textarea')].some(x=>x.value.trim())};
+ L.paint=()=>L.vp.forEach(f=>{try{if(!f())L.vp.delete(f)}catch(e){L.vp.delete(f)}});
+ async function step(){if(document.hidden||!onCfg())return;
+  const live=[];L.th.forEach(e=>{if(e.sec.isConnected){e.miss=0;live.push(e)}else if((e.miss=(e.miss||0)+1)>2)L.th.delete(e)});
+  const ts=[...new Set(live.map(e=>e.t))].slice(0,4),p=await ON.soc('/social/pulse?t='+encodeURIComponent(ts.join(',')),{t:8000});
+  if(L.ix!==null&&p.ix!==L.ix)await ONL.load(1);L.ix=p.ix;
+  for(const t of ts){if(L.c[t]!==undefined&&p.c&&p.c[t]!==L.c[t])live.filter(e=>e.t===t).forEach(e=>e.load(1));if(p.c)L.c[t]=p.c[t]}
+  if(L.n!==null&&p.n!==L.n&&ON.user()){const o=NT.n;await NT.load();if(NT.n>o)toast('New notification')}L.n=p.n;
+  if(++L.k%3===0){await VT.load();L.paint();live.forEach(e=>e.load(1))}
+  if(ONL.dirty&&!busy()&&$('#home').classList.contains('on')){ONL.dirty=0;renderHome()}}
+ const loop=async()=>{clearTimeout(L.t);try{await step();L.fail=0}catch(e){L.fail++}if(L.fail<6)L.t=setTimeout(loop,Math.min(60000,8000*Math.pow(2,L.fail)))};
+ L.kick=()=>{L.fail=0;clearTimeout(L.t);L.t=setTimeout(loop,300)};
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)L.kick()});addEventListener('online',L.kick);setTimeout(loop,4000);return L})();
 function voteEl(t,sm,story){const d=E('div','vt'+(sm?' sm':'')),u=E('button','','\u25b2'),n=E('b'),w=E('button','','\u25bc');u.setAttribute('aria-label','Upvote');w.setAttribute('aria-label','Downvote');d.append(u,n,w);
- const g=()=>VT.m[t]||(VT.m[t]={up:0,dn:0,mine:0}),paint=()=>{const x=g();n.textContent=x.up-x.dn;u.classList.toggle('on',x.mine>0);w.classList.toggle('on',x.mine<0)};paint();
+ const g=()=>VT.m[t]||(VT.m[t]={up:0,dn:0,mine:0}),paint=()=>{const x=g();n.textContent=x.up-x.dn;u.classList.toggle('on',x.mine>0);w.classList.toggle('on',x.mine<0)};paint();LIVE.vp.add(()=>{if(!d.isConnected)return 1;paint();return 1});
  const cast=async v=>{const x=g(),o={...x};if(x.mine===v)v=0;if(x.mine>0)x.up--;if(x.mine<0)x.dn--;if(v>0)x.up++;if(v<0)x.dn++;x.mine=v;paint();try{Object.assign(x,await ON.soc('/social/vote',{method:'PUT',body:{id:t,v,story},t:12000},1));paint()}catch(e){Object.assign(x,o);paint();if(e.message!=='cancelled')toast(e.message||'Could not save your vote.')}};
  u.onclick=()=>cast(1);w.onclick=()=>cast(-1);return d}
 function chapBar(e){const x=E('div','cmf'),b=icn(E('button','txt'),IC.cm,'Comments');x.style.cssText='padding:2px 14px 10px';
@@ -1183,11 +1197,11 @@ function socialBox(thread,title){const sec=E('section','wsec cm','<h3></h3>'),ta
    if(adm||mine){const d=icn(E('button','txt'),IC.tr,'Delete');d.onclick=async()=>{if(!await ask(kids[c.id]?'Delete this comment and its replies?':'Delete this comment?',null,'Delete'))return;try{await ON.soc(base+'/'+c.id,{method:'DELETE'},1);load()}catch(e){toast(e.message||'Could not delete.')}};f.append(d)}
    h.append(nm,tm);r.append(h,tx,f);return r};
   const tops=cs.filter(c=>!(c.parent&&ids.has(c.parent)));if(srt==='old')tops.reverse();else if(srt==='top')tops.sort((a,b)=>((b.up||0)-(b.dn||0))-((a.up||0)-(a.dn||0))||b.t-a.t);tops.forEach(c=>{lst.append(item(c));(kids[c.id]||[]).forEach(k=>{const kr=item(k);kr.style.cssText='margin-left:18px;padding-left:10px;border-left:2px solid var(--line)';lst.append(kr)})})};
- const load=async()=>{try{const d=await ON.soc(base,{t:12000});adm=!!d.role;boss=d.role==='admin';last=d.comments||[];render(last);if(adm&&!/^e_/.test(thread)&&!td.isConnected&&ONL.list.some(o=>o.id===thread&&o.authorUid!==(ON.user()||{}).uid))row.append(td);render(last)}catch(e){lst.textContent='';lst.append(E('p','hn','Comments are not available right now.'))}};
+ let sig='';const load=async q=>{try{const d=await ON.soc(base,{t:12000}),s=JSON.stringify(d);if(q===1&&s===sig)return;sig=s;adm=!!d.role;boss=d.role==='admin';last=d.comments||[];render(last);if(adm&&!/^e_/.test(thread)&&!td.isConnected&&ONL.list.some(o=>o.id===thread&&o.authorUid!==(ON.user()||{}).uid))row.append(td);render(last)}catch(e){if(q===1)return;lst.textContent='';lst.append(E('p','hn','Comments are not available right now.'))}};
  pb.onclick=async()=>{const tx=ta.value.trim();if(!tx)return;pb.disabled=1;try{if(!lsg('strip-me',{}).name&&!await profEdit()){pb.disabled=0;return}await ON.soc(base,{method:'POST',body:{text:tx,name:lsg('strip-me',{}).name||'',parent:rep?rep.id:undefined,to:rep?rep.to:undefined,re:rep?rep.re:undefined},t:15000},1);ta.value='';setRep(null);await load()}catch(e){if(e.message!=='cancelled')toast(e.message||'Could not post your comment.')}pb.disabled=0};
  const td=icn(E('button','txt'),IC.tr,'Take down story');td.onclick=async()=>{if(!await ask('Take this story offline? Its chapters and comments are removed and the author is told.',null,'Take down'))return;try{await ON.soc('/stories/'+encodeURIComponent(thread),{method:'DELETE',t:20000},1);toast('Story taken down.');await ONL.load(1);DSID=null;renderHome()}catch(e){if(e.message!=='cancelled')toast(e.message||'Could not take it down.')}};
- row.append(pb,sel);sec.append(bar,ta,row,lst);load();return sec}
-const ONL={list:[],at:0,async load(f){if(!onCfg()||(!f&&Date.now()-this.at<60000))return;this.at=Date.now();try{const l=await ON.list(),k=a=>a.map(x=>x.id+':'+x.updated).join();VT.load();if(k(l)!==k(this.list)){this.list=l;if($('#home').classList.contains('on'))renderHome()}openShared();NT.load()}catch(e){}}};
+ row.append(pb,sel);sec.append(bar,ta,row,lst);load();LIVE.th.add({t:thread,sec,load});return sec}
+const ONL={list:[],at:0,async load(f){if(!onCfg()||(!f&&Date.now()-this.at<60000))return;this.at=Date.now();try{const l=await ON.list(),k=a=>a.map(x=>x.id+':'+x.updated).join();VT.load();if(k(l)!==k(this.list)){this.list=l;if($('#home').classList.contains('on')){if(LIVE.busy())this.dirty=1;else renderHome()}}openShared();NT.load()}catch(e){}}};
 let SHD=0;function openShared(){if(SHD)return;const m=/[#&]story=([\w-]+)/.exec(location.hash);if(!m||!ONL.list.some(o=>o.id===m[1]))return;SHD=1;DSID='o'+m[1];HV='discover';showHome()}
 const penName=()=>profEdit();
 async function avatar(f){const bm=await createImageBitmap(f),c=E('canvas'),z=256,m=Math.min(bm.width,bm.height);c.width=c.height=z;c.getContext('2d').drawImage(bm,(bm.width-m)/2,(bm.height-m)/2,m,m,0,0,z,z);let d=c.toDataURL('image/webp',.85);if(d.indexOf('image/webp')<0)d=c.toDataURL('image/jpeg',.85);return d}
