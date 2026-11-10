@@ -1139,11 +1139,16 @@ async function addCh(st){const nm=await ask('Chapter name','Chapter '+(st.chapte
 async function newStory(){const nm0=await ask('Name your story','','Create');if(!nm0)return;const nm=nm0.slice(0,200);const s={id:uid(),name:nm,created:Date.now(),updated:Date.now(),chapters:[],thumb:''};await DB.put('s',s);HV='create';HS=s.id;renderHome();addCh(s)}
 function vDisc(B,all){const q=HQ.trim().toLowerCase(),l=all.filter(s=>(HG==='All'||(s.genres||[s.genre]).includes(HG))&&(!q||[s.name,s.author,...(s.genres||[s.genre]),s.syn].join(' ').toLowerCase().includes(q)));
  if(!all.length){B.append(welcome());return}if(!l.length){B.append(E('p','hn','No stories match. Try another genre or search.'));return}
- let adc=0;const by=f=>[...l].sort(f),sec=(t,a,car)=>{const d=E('section','wsec',`<h3>${t}</h3>`),g=E('div','wg'+(car?' car':''));a.forEach((s,i)=>{g.append(card(s));if(!car){const ad=window.stripAd&&stripAd(i,a.length);if(ad)g.append(ad)}});d.append(g);B.append(d);if(car){adc+=a.length;if(adc>=10){const ad=window.stripAd&&stripAd(0,0,1);if(ad)B.append(ad);adc=0}}};
+ let adc=0;const by=f=>[...l].sort(f),sec=(t,a,car,sf)=>{const d=E('section','wsec',`<h3>${t}</h3>`),g=E('div','wg'+(car?' car':''));a.forEach((s,i)=>{g.append(card(s,sf&&sf(s)));if(!car){const ad=window.stripAd&&stripAd(i,a.length);if(ad)g.append(ad)}});d.append(g);B.append(d);if(car){adc+=a.length;if(adc>=10){const ad=window.stripAd&&stripAd(0,0,1);if(ad)B.append(ad);adc=0}}};
  if(q)return sec(`Results (${l.length})`,l);
- const sc=s=>s.rating*Math.log10(s.views+10),h=by((a,b)=>a.days-b.days)[0],hero=E('div','wh'),wi=E('div','wi',`<small>${esc((h.genres||[h.genre]).join(' \u00b7 '))}</small><h2>${esc(h.name)}</h2><em>by ${esc(h.author)}</em><p class="wsy">${esc(h.syn)}</p>`),rb=icn(E('button','txt pri'),IC.pl,'Read now');
- rb.onclick=e=>{e.stopPropagation();readStory(h,0)};wi.append(rb);hero.append(covEl(h),wi);hero.onclick=()=>{DSID=h.key;renderHome()};B.append(hero);
- sec('Fresh Releases',by((a,b)=>a.days-b.days).slice(0,8),1);GEN.forEach(g=>{const a=by((x,y)=>x.days-y.days).filter(s=>(s.genres||[s.genre]).includes(g));if(a.length)sec(g,a.slice(0,8),1)});B.append(welcome(1))}
+ const vts=s=>{const t=VT.m['s_'+s.id];return t?t.up:0},hero=E('div','wh');
+ const fill=s=>{hero.innerHTML='';const wi=E('div','wi',`<small>${esc((s.genres||[s.genre]).join(' · '))}</small><h2>${esc(s.name)}</h2><em>by ${esc(s.author)}</em><p class="wsy">${esc(s.syn)}</p>`),rb=icn(E('button','txt pri'),IC.pl,'Read now');
+  rb.onclick=e=>{e.stopPropagation();readStory(s,0)};wi.append(rb);hero.append(covEl(s),wi);hero.onclick=()=>{DSID=s.key;renderHome()}};
+ let hc=l[Math.floor(Math.random()*l.length)];fill(hc);hero.style.transition='opacity .35s';B.append(hero);
+ if(l.length>1){const t=setInterval(()=>{if(!hero.isConnected){clearInterval(t);return}const o=l.filter(x=>x!==hc);hc=o[Math.floor(Math.random()*o.length)];hero.style.opacity=0;setTimeout(()=>{fill(hc);hero.style.opacity=1},350)},6000)}
+ sec('Hall of Fame',by((a,b)=>vts(b)-vts(a)||(b.views||0)-(a.views||0)||a.days-b.days).slice(0,10),1,s=>`\u25b2 ${vts(s)} \u00b7 ${fv(s.views||0)} views`);
+ const fr=by((a,b)=>a.days-b.days).filter(s=>s.days<=1);if(fr.length)sec('Fresh Releases',fr.slice(0,8),1);
+ GEN.forEach(g=>{const a=by((x,y)=>x.days-y.days).filter(s=>(s.genres||[s.genre]).includes(g));if(a.length)sec(g,a.slice(0,8),1)});B.append(welcome(1))}
 function vLib(B,all){const by=k=>all.find(s=>s.key===k),H=LB.h.map(h=>({h,s:by(h.k)})).filter(x=>x.s&&x.s.eps[x.h.e]),M=LB.b.map(by).filter(Boolean);
  if(!H.length&&!M.length){B.append(E('p','hn','Nothing here yet. Read an episode or bookmark a story and it will show up in your Library.'));return}
  if(H.length){const d=E('section','wsec','<h3>Continue reading</h3>'),g=E('div','wg car'),cl=icn(E('button','txt'),IC.tr,'Clear history');cl.onclick=()=>{LB.h=[];lss('strip-lib',LB);renderHome()};d.firstChild.append(cl);H.forEach(({h,s})=>g.append(card(s,`Ep. ${h.e+1} \u00b7 ${when(h.t)}`,()=>readStory(s,h.e))));d.append(g);B.append(d)}
